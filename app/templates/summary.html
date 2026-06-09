@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}AI 汇总 - 周报汇总系统{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>AI 汇总</h2>
+  <p>使用 AI 智能汇总团队周报</p>
+</div>
+
+<!-- 生成操作 -->
+<div class="card">
+  <div class="card-header">
+    <h3>当前周期汇总</h3>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-secondary" onclick="openPromptConfig()">⚙️ 周报汇总模板</button>
+      <button id="generateBtn" class="btn btn-primary" onclick="generateSummary()">🤖 生成汇总</button>
+    </div>
+  </div>
+  <p style="color:var(--text-secondary);font-size:14px">
+    点击按钮将对本周所有已提交的周报进行 AI 智能汇总。
+  </p>
+</div>
+
+<!-- 历史汇总 -->
+<div class="card">
+  <div class="card-header">
+    <h3>历史汇总记录</h3>
+  </div>
+
+  {% if summaries %}
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>周期</th>
+          <th>生成时间</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in summaries %}
+        <tr>
+          <td>{{ s.week_period.week_start }} ~ {{ s.week_period.week_end }}</td>
+          <td>{{ s.generated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td>
+            <textarea id="raw-content-{{ s.id }}" style="display:none;">{{ s.summary_content }}</textarea>
+            <button class="btn btn-secondary btn-sm" onclick="viewSummary({{ s.id }})">查看</button>
+            <a href="/api/summaries/{{ s.id }}/download" class="btn btn-primary btn-sm"
+              style="text-decoration:none; color:white;">下载</a>
+            {% if s.week_period_id == current_period_id %}
+            <button class="btn btn-danger btn-sm" onclick="deleteSummary({{ s.id }})">删除</button>
+            {% else %}
+            <button class="btn btn-danger btn-sm" disabled title="历史周期不可修改">删除</button>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="icon">🤖</div>
+    <p>暂无汇总记录，请先生成</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- 查看汇总详情模态框 -->
+<div class="modal-overlay" id="viewSummaryModal">
+  <div class="modal" style="max-width:800px">
+    <div class="modal-header">
+      <h3 id="viewSummaryTitle">汇总报告详情</h3>
+      <button class="modal-close" onclick="closeModal('viewSummaryModal')">✕</button>
+    </div>
+    <div id="viewSummaryContent" class="summary-content"></div>
+  </div>
+</div>
+
+<!-- 配置提示词模态框 -->
+<div class="modal-overlay" id="promptConfigModal">
+  <div class="modal" style="max-width:800px">
+    <div class="modal-header">
+      <h3>配置汇总提示词</h3>
+      <button class="modal-close" onclick="closeModal('promptConfigModal')">✕</button>
+    </div>
+    <form onsubmit="submitPromptConfig(event)">
+      <div class="form-group">
+        <textarea id="promptContent" class="form-control" style="min-height: 400px; font-family: monospace;"></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary btn-lg" style="width:100%">保存配置</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/marked.min.js"></script>
+<script>
+  async function openPromptConfig() {
+    try {
+      const res = await api('/api/summaries/prompt');
+      document.getElementById('promptContent').value = res.content;
+      openModal('promptConfigModal');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function submitPromptConfig(e) {
+    e.preventDefault();
+    const content = document.getElementById('promptContent').value.trim();
+    if (!content) {
+      showToast('提示词不能为空', 'error');
+      return;
+    }
+    try {
+      await api('/api/summaries/prompt', {
+        method: 'PUT',
+        body: JSON.stringify({ content: content })
+      });
+      showToast('提示词已更新');
+      closeModal('promptConfigModal');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  function viewSummary(id) {
+    const content = document.getElementById('raw-content-' + id).value;
+    document.getElementById('viewSummaryContent').innerHTML = marked.parse(content);
+    openModal('viewSummaryModal');
+  }
+
+  async function deleteSummary(id) {
+    if (!confirm('确定要删除这份汇总记录吗？')) return;
+    try {
+      await api(`/api/summaries/${id}`, { method: 'DELETE' });
+      showToast('已删除');
+      location.reload();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+</script>
+{% endblock %}

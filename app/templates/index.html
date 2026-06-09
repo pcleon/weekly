@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}仪表盘 - 周报汇总系统{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>仪表盘</h2>
+  <p>{{ period.week_start }} 至 {{ period.week_end }} · 截止时间：{{ period.deadline.strftime('%m-%d %H:%M') }}</p>
+</div>
+
+<!-- 统计卡片 -->
+<div class="stats-grid">
+  <div class="stat-card accent">
+    <div class="label">当前周期</div>
+    <div class="value">第{{ period.week_start.isocalendar()[1] }}周</div>
+  </div>
+  <div class="stat-card success">
+    <div class="label">已提交</div>
+    <div class="value">{{ status.submitted_count }}</div>
+  </div>
+  <div class="stat-card danger">
+    <div class="label">未提交</div>
+    <div class="value">{{ status.total - status.submitted_count }}</div>
+  </div>
+  <div class="stat-card warning">
+    <div class="label" style="display:flex; justify-content:space-between; align-items:center;">
+      <span>截止倒计时 ({{ deadline_str }})</span>
+      <button class="btn btn-sm btn-secondary" onclick="openDeadlineConfig()" style="padding:2px 8px;font-size:12px;background:var(--bg-primary);">⚙️ 设置</button>
+    </div>
+    <div id="countdown" class="countdown" style="background:#f0f0f0; color:#333; padding: 6px; border-radius: 6px; text-align: center; font-family: monospace; font-size:18px; margin-top:8px;"></div>
+  </div>
+</div>
+
+<!-- 提交状态一览 -->
+<div class="card">
+  <div class="card-header">
+    <h3>提交状态一览</h3>
+    <a href="/report/new" class="btn btn-primary btn-sm">📝 提交周报</a>
+  </div>
+
+  {% if status.total == 0 %}
+  <div class="empty-state">
+    <div class="icon">👥</div>
+    <p>暂无团队成员，请先<a href="/members" style="color: var(--accent);">添加成员</a></p>
+  </div>
+  {% else %}
+  <div class="member-status-list">
+    {% for m in status.submitted %}
+    <div class="member-status-item">
+      <span class="dot yes"></span>
+      <span style="background:var(--bg-primary); color:var(--text-muted); font-size:11px; padding:2px 6px; border-radius:4px; margin-right:4px;">已交</span>
+      <span class="name">{{ m.name }}</span>
+      <span class="dept">{{ m.department }}</span>
+    </div>
+    {% endfor %}
+    {% for m in status.not_submitted %}
+    <div class="member-status-item">
+      <span class="dot no"></span>
+      <span style="background:var(--bg-primary); color:var(--text-muted); font-size:11px; padding:2px 6px; border-radius:4px; margin-right:4px;">未交</span>
+      <span class="name">{{ m.name }}</span>
+      <span class="dept">{{ m.department }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+<!-- 配置截止时间模态框 -->
+<div class="modal-overlay" id="deadlineConfigModal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <h3>配置每周截止时间</h3>
+      <button class="modal-close" onclick="closeModal('deadlineConfigModal')">✕</button>
+    </div>
+    <form onsubmit="submitDeadlineConfig(event)">
+      <div class="form-group">
+        <label>星期</label>
+        <select id="deadlineDay" class="form-control">
+          <option value="0">周一</option>
+          <option value="1">周二</option>
+          <option value="2">周三</option>
+          <option value="3">周四</option>
+          <option value="4">周五</option>
+          <option value="5">周六</option>
+          <option value="6">周日</option>
+        </select>
+      </div>
+      <div class="form-group" style="display:flex; gap:10px;">
+        <div style="flex:1">
+          <label>小时 (0-23)</label>
+          <input type="number" id="deadlineHour" class="form-control" min="0" max="23" required>
+        </div>
+        <div style="flex:1">
+          <label>分钟 (0-59)</label>
+          <input type="number" id="deadlineMinute" class="form-control" min="0" max="59" required>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-lg" style="width:100%">保存</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function openDeadlineConfig() {
+  try {
+    const res = await api('/api/settings/deadline');
+    document.getElementById('deadlineDay').value = res.day_of_week;
+    document.getElementById('deadlineHour').value = res.hour;
+    document.getElementById('deadlineMinute').value = res.minute;
+    openModal('deadlineConfigModal');
+  } catch(err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function submitDeadlineConfig(e) {
+  e.preventDefault();
+  const day_of_week = parseInt(document.getElementById('deadlineDay').value);
+  const hour = parseInt(document.getElementById('deadlineHour').value);
+  const minute = parseInt(document.getElementById('deadlineMinute').value);
+  try {
+    const res = await api('/api/settings/deadline', {
+      method: 'PUT',
+      body: JSON.stringify({ day_of_week, hour, minute })
+    });
+    showToast(res.message);
+    closeModal('deadlineConfigModal');
+    location.reload();
+  } catch(err) {
+    showToast(err.message, 'error');
+  }
+}
+
+startCountdown('{{ period.deadline.isoformat() }}');
+</script>
+{% endblock %}

@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}提交周报 - 周报汇总系统{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/easymde.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>提交周报</h2>
+  <p>{{ period.week_start }} 至 {{ period.week_end }}</p>
+</div>
+
+<div class="card">
+  <form onsubmit="submitReportWithMDE(event)">
+    <div class="form-group">
+      <label>选择成员 *</label>
+      <select name="member_id" class="form-control" required>
+        <option value="">-- 请选择 --</option>
+        {% for m in members %}
+        <option value="{{ m.id }}">{{ m.name }}（{{ m.department }}）</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>使用模板</label>
+      <select name="template_id" class="form-control" onchange="loadTemplateWithMDE(this)">
+        <option value="">-- 不使用模板 --</option>
+        {% for t in templates %}
+        <option value="{{ t.id }}" {% if t.is_default %}selected{% endif %}>
+          {{ t.name }}{% if t.is_default %} (默认){% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>周报内容 *</label>
+      <textarea name="content" id="reportContent" class="form-control" placeholder="请输入本周工作内容..." required>{% if default_template %}{{ default_template.content }}{% endif %}</textarea>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-lg" style="width:100%">📤 提交周报</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/easymde.min.js"></script>
+<script>
+let easyMDE;
+
+document.addEventListener('DOMContentLoaded', () => {
+  easyMDE = new EasyMDE({
+    element: document.getElementById('reportContent'),
+    spellChecker: false,
+    status: false,
+    placeholder: "请输入本周工作内容...",
+    renderingConfig: {
+      singleLineBreaks: false,
+      codeSyntaxHighlighting: true,
+    }
+  });
+});
+
+async function loadTemplateWithMDE(selectEl) {
+  const id = selectEl.value;
+  if (!id) {
+    if (easyMDE) easyMDE.value('');
+    return;
+  }
+  try {
+    const tpl = await api(`/api/templates/${id}`);
+    if (easyMDE) {
+      easyMDE.value(tpl.content);
+    } else {
+      document.getElementById('reportContent').value = tpl.content;
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function submitReportWithMDE(e) {
+  e.preventDefault();
+  const form = e.target;
+  const member_id = parseInt(form.querySelector('[name="member_id"]').value);
+  const template_id = form.querySelector('[name="template_id"]').value || null;
+  // 从 EasyMDE 获取最新内容
+  const content = easyMDE ? easyMDE.value().trim() : form.querySelector('[name="content"]').value.trim();
+
+  if (!member_id || !content) { showToast('请选择成员并填写内容', 'error'); return; }
+
+  try {
+    await api('/api/reports', {
+      method: 'POST',
+      body: JSON.stringify({
+        member_id,
+        template_id: template_id ? parseInt(template_id) : null,
+        content,
+      }),
+    });
+    showToast('周报提交成功');
+    setTimeout(() => location.href = '/', 1000);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+</script>
+{% endblock %}

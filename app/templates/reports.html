@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}存档管理 - 周报汇总系统{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/easymde.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>存档管理</h2>
+  <p>查看历史周报记录</p>
+</div>
+
+<!-- 周期筛选 -->
+<div class="card">
+  <div class="card-header">
+    <h3>历史周报</h3>
+    <div>
+      <select id="periodFilter" class="form-control" style="width:auto;display:inline-block" onchange="filterByPeriod(this.value)">
+        <option value="">全部周期</option>
+        {% for p in periods %}
+        <option value="{{ p.id }}" {% if selected_period_id == p.id %}selected{% endif %}>
+          {{ p.week_start }} ~ {{ p.week_end }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  {% if reports %}
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>成员</th>
+          <th>团队</th>
+          <th>周期</th>
+          <th>提交时间</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in reports %}
+        <tr>
+          <td>{{ r.member.name }}</td>
+          <td>{{ r.member.department }}</td>
+          <td>{{ r.week_period.week_start }} ~ {{ r.week_period.week_end }}</td>
+          <td>{{ r.submitted_at.strftime('%m-%d %H:%M') }}</td>
+          <td>
+            <textarea id="raw-report-{{ r.id }}" style="display:none;">{{ r.content }}</textarea>
+            <button class="btn btn-secondary btn-sm" onclick="viewReport({{ r.id }})">查看</button>
+            {% if r.week_period_id == current_period_id %}
+            <button class="btn btn-primary btn-sm" onclick="openEditReport({{ r.id }})">重新提交</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteReport({{ r.id }})">删除</button>
+            {% else %}
+            <button class="btn btn-primary btn-sm" disabled title="历史周期不可修改">重新提交</button>
+            <button class="btn btn-danger btn-sm" disabled title="历史周期不可修改">删除</button>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="icon">📂</div>
+    <p>暂无周报记录</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- 查看周报详情模态框 -->
+<div class="modal-overlay" id="viewReportModal">
+  <div class="modal" style="max-width:720px">
+    <div class="modal-header">
+      <h3 id="reportDetailTitle">周报详情</h3>
+      <button class="modal-close" onclick="closeModal('viewReportModal')">✕</button>
+    </div>
+    <div id="reportDetailContent" class="summary-content" style="min-height:200px"></div>
+  </div>
+</div>
+
+<!-- 重新提交周报模态框 -->
+<div class="modal-overlay" id="editReportModal">
+  <div class="modal" style="max-width:800px">
+    <div class="modal-header">
+      <h3>重新提交周报</h3>
+      <button class="modal-close" onclick="closeModal('editReportModal')">✕</button>
+    </div>
+    <form onsubmit="submitEditReport(event)">
+      <input type="hidden" id="editReportId">
+      <div class="form-group">
+        <textarea id="editReportContent" class="form-control"></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary btn-lg" style="width:100%">保存提交</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterByPeriod(periodId) {
+  const url = new URL(window.location);
+  if (periodId) {
+    url.searchParams.set('period_id', periodId);
+  } else {
+    url.searchParams.delete('period_id');
+  }
+  window.location = url;
+}
+
+async function viewReport(id) {
+  try {
+    const reports = await api('/api/reports');
+    const r = reports.find(r => r.id === id);
+    if (r) {
+      document.getElementById('reportDetailTitle').textContent =
+        `${r.member?.name || ''} 的周报`;
+      document.getElementById('reportDetailContent').innerHTML = marked.parse(r.content);
+      openModal('viewReportModal');
+    } else {
+      showToast('未找到该周报', 'error');
+    }
+  } catch(err) {
+    showToast(err.message, 'error');
+  }
+}
+</script>
+<script src="/static/js/marked.min.js"></script>
+<script src="/static/js/easymde.min.js"></script>
+<script>
+let reportMDE;
+
+function openEditReport(id) {
+  const content = document.getElementById('raw-report-' + id).value;
+  document.getElementById('editReportId').value = id;
+  
+  if (!reportMDE) {
+    reportMDE = new EasyMDE({
+      element: document.getElementById('editReportContent'),
+      spellChecker: false,
+      status: false
+    });
+  }
+  reportMDE.value(content);
+  openModal('editReportModal');
+}
+
+async function submitEditReport(e) {
+  e.preventDefault();
+  const id = document.getElementById('editReportId').value;
+  const content = reportMDE.value().trim();
+
+  if (!content) {
+    showToast('周报内容不能为空', 'error');
+    return;
+  }
+
+  try {
+    await api(`/api/reports/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ content: content })
+    });
+    showToast('重新提交成功');
+    location.reload();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function deleteReport(id) {
+  if (!confirm('确定要删除这篇周报记录吗？')) return;
+  try {
+    await api(`/api/reports/${id}`, { method: 'DELETE' });
+    showToast('已删除');
+    location.reload();
+  } catch(err) {
+    showToast(err.message, 'error');
+  }
+}
+</script>
+{% endblock %}

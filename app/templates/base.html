@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="团队周报汇总系统 - 智能汇总，高效管理">
+  <title>{% block title %}周报汇总系统{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/style.css?v=2">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <div class="layout">
+    <!-- 侧边导航 -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <h1>Weekly Report</h1>
+        <div class="subtitle">周报汇总系统</div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="/" class="nav-item {% if active_page == 'index' %}active{% endif %}" id="nav-dashboard">
+          <span class="icon">📊</span> 仪表盘
+        </a>
+        <a href="/members" class="nav-item {% if active_page == 'members' %}active{% endif %}" id="nav-members">
+          <span class="icon">👥</span> 人员管理
+        </a>
+        <a href="/report/new" class="nav-item {% if active_page == 'report_form' %}active{% endif %}" id="nav-submit">
+          <span class="icon">📝</span> 提交周报
+        </a>
+        <a href="/reports" class="nav-item {% if active_page == 'reports' %}active{% endif %}" id="nav-reports">
+          <span class="icon">📂</span> 存档管理
+        </a>
+        <a href="/templates" class="nav-item {% if active_page == 'templates' %}active{% endif %}" id="nav-templates">
+          <span class="icon">📋</span> 模板管理
+        </a>
+        <a href="/summary" class="nav-item {% if active_page == 'summary' %}active{% endif %}" id="nav-summary">
+          <span class="icon">🤖</span> AI 汇总
+        </a>
+      </nav>
+    </aside>
+
+    <!-- 主内容 -->
+    <main class="main-content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

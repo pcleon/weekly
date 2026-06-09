@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}模板管理 - 周报汇总系统{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>模板管理</h2>
+  <p>管理周报模板，支持文本和 docx 格式</p>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3>模板列表</h3>
+    <button class="btn btn-primary btn-sm" onclick="openModal('addTemplateModal')">➕ 新建模板</button>
+  </div>
+
+  {% if templates %}
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>名称</th>
+          <th>类型</th>
+          <th>默认</th>
+          <th>更新时间</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in templates %}
+        <tr>
+          <td>{{ t.name }}</td>
+          <td>
+            {% if t.file_path %}
+            <span class="badge" style="background:rgba(99,102,241,0.12);color:var(--accent)">📄 docx</span>
+            {% else %}
+            <span class="badge" style="background:var(--bg-input);color:var(--text-secondary)">📝 文本</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if t.is_default %}
+            <span class="badge submitted">★ 默认</span>
+            {% else %}
+            <span style="color:var(--text-muted)">-</span>
+            {% endif %}
+          </td>
+          <td>{{ t.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td>
+            <button class="btn btn-secondary btn-sm" onclick="viewTemplateContent({{ t.id }})">查看</button>
+            {% if t.file_path %}
+            <a class="btn btn-secondary btn-sm" href="/api/templates/{{ t.id }}/download">下载</a>
+            {% endif %}
+            {% if not t.is_default %}
+            <button class="btn btn-secondary btn-sm" onclick="setDefaultTemplate({{ t.id }})">设为默认</button>
+            {% endif %}
+            <button class="btn btn-danger btn-sm" onclick="deleteTemplate({{ t.id }})">删除</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="icon">📋</div>
+    <p>暂无模板，点击上方按钮创建</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- 新建模板模态框 -->
+<div class="modal-overlay" id="addTemplateModal">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <h3>新建模板</h3>
+      <button class="modal-close" onclick="closeModal('addTemplateModal')">✕</button>
+    </div>
+    <form onsubmit="addTemplateWithFile(event)">
+      <div class="form-group">
+        <label>模板名称 *</label>
+        <input type="text" name="name" class="form-control" placeholder="如：通用周报模板" required>
+      </div>
+      <div class="form-group">
+        <label>上传 docx 文件（可选）</label>
+        <input type="file" name="file" class="form-control" accept=".docx" id="docxFileInput">
+        <p style="font-size:12px;color:var(--text-muted);margin-top:4px">上传 docx 后将自动提取文本内容作为模板</p>
+      </div>
+      <div class="form-group">
+        <label>模板内容（支持 Markdown，上传 docx 后自动填充）</label>
+        <textarea name="content" class="form-control" placeholder="## 本周工作&#10;&#10;- &#10;&#10;## 下周计划&#10;&#10;- &#10;&#10;## 需要协调的问题&#10;&#10;- "></textarea>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" name="is_default" id="isDefault">
+        <label for="isDefault" style="margin:0;cursor:pointer">设为默认模板</label>
+      </div>
+      <button type="submit" class="btn btn-primary btn-lg" style="width:100%">创建模板</button>
+    </form>
+  </div>
+</div>
+
+<!-- 查看模板内容模态框 -->
+<div class="modal-overlay" id="viewTemplateModal">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <h3 id="viewTemplateName">模板内容</h3>
+      <button class="modal-close" onclick="closeModal('viewTemplateModal')">✕</button>
+    </div>
+    <div id="viewTemplateContent" class="summary-content" style="min-height:200px"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function viewTemplateContent(id) {
+  try {
+    const tpl = await api(`/api/templates/${id}`);
+    document.getElementById('viewTemplateName').textContent = tpl.name;
+    document.getElementById('viewTemplateContent').textContent = tpl.content;
+    openModal('viewTemplateModal');
+  } catch(err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function addTemplateWithFile(e) {
+  e.preventDefault();
+  const form = e.target;
+  const formData = new FormData();
+  formData.append('name', form.querySelector('[name="name"]').value.trim());
+  formData.append('content', form.querySelector('[name="content"]').value.trim());
+  formData.append('is_default', form.querySelector('[name="is_default"]').checked ? 'true' : 'false');
+
+  const fileInput = form.querySelector('[name="file"]');
+  if (fileInput.files.length > 0) {
+    formData.append('file', fileInput.files[0]);
+  }
+
+  if (!formData.get('name')) { showToast('请输入模板名称', 'error'); return; }
+
+  try {
+    const resp = await fetch('/api/templates', { method: 'POST', body: formData });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: '创建失败' }));
+      throw new Error(err.detail || '创建失败');
+    }
+    showToast('模板创建成功');
+    closeModal('addTemplateModal');
+    location.reload();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+</script>
+{% endblock %}
