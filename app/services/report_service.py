@@ -11,6 +11,16 @@ def get_or_create_current_period(db: Session) -> WeekPeriod:
     """获取或创建当前周期"""
     tz = ZoneInfo(get_settings().timezone)
     today = datetime.now(tz).date()
+    
+    # 优先查找是否有覆盖今天的跨周周期（如节假日顺延产生的）
+    active_period = db.query(WeekPeriod).filter(
+        WeekPeriod.week_start <= today,
+        WeekPeriod.week_end >= today
+    ).first()
+    
+    if active_period:
+        return active_period
+
     info = WeekPeriod.calc_for_date(today)
 
     period = db.query(WeekPeriod).filter(

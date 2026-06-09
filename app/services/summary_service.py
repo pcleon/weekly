@@ -8,10 +8,7 @@ DEFAULT_SUMMARY_PROMPT_TEMPLATE = """# 数据库团队工作周报
 
 ## 一、本周工作概述
 
-**业务连续性**：  
-**AK项目**：  
-**平台研发**：  
-**金融科技**：  
+**业务连续性**： ；**AK项目**： ；**平台研发**： ；**金融科技**： 。
 
 ## 二、本周重点工作
 
@@ -47,6 +44,11 @@ DEFAULT_SUMMARY_PROMPT_TEMPLATE = """# 数据库团队工作周报
 import os
 
 PROMPT_FILE_PATH = os.path.join(os.path.dirname(__file__), "..", "prompt_template.txt")
+SYSTEM_PROMPT_FILE_PATH = os.path.join(os.path.dirname(__file__), "..", "system_prompt.txt")
+
+DEFAULT_SYSTEM_PROMPT = """你是一个专业的团队周报汇总助手。请根据以下团队成员的周报内容，生成一份结构清晰的团队周报汇总。
+
+**必须严格按照以下 Markdown 模板格式输出，不要改变或增删任何标题：**"""
 
 def get_summary_prompt() -> str:
     if os.path.exists(PROMPT_FILE_PATH):
@@ -56,6 +58,16 @@ def get_summary_prompt() -> str:
 
 def save_summary_prompt(content: str):
     with open(PROMPT_FILE_PATH, "w", encoding="utf-8") as f:
+        f.write(content)
+
+def get_system_prompt() -> str:
+    if os.path.exists(SYSTEM_PROMPT_FILE_PATH):
+        with open(SYSTEM_PROMPT_FILE_PATH, "r", encoding="utf-8") as f:
+            return f.read()
+    return DEFAULT_SYSTEM_PROMPT
+
+def save_system_prompt(content: str):
+    with open(SYSTEM_PROMPT_FILE_PATH, "w", encoding="utf-8") as f:
         f.write(content)
 
 def build_reports_text(reports: list[WeeklyReport]) -> str:
@@ -84,10 +96,9 @@ def generate_summary(db: Session, period: WeekPeriod) -> WeeklySummary:
 
     reports_text = build_reports_text(reports)
     user_template = get_summary_prompt()
+    system_prompt = get_system_prompt()
     
-    prompt_text = f"""你是一个专业的团队周报汇总助手。请根据以下团队成员的周报内容，生成一份结构清晰的团队周报汇总。
-
-**必须严格按照以下 Markdown 模板格式输出，不要改变或增删任何标题：**
+    prompt_text = f"""{system_prompt}
 
 {user_template}
 

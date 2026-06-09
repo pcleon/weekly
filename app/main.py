@@ -44,6 +44,25 @@ def api_update_deadline(cfg: DeadlineConfig, db: Session = Depends(get_db)):
     return {"message": "截止时间已更新", "new_deadline": current_period.deadline.isoformat()}
 
 
+from pydantic import BaseModel
+class PeriodExtendParams(BaseModel):
+    weeks: int
+
+@app.post("/api/settings/period/extend")
+def api_extend_period(params: PeriodExtendParams, db: Session = Depends(get_db)):
+    from datetime import timedelta
+    current_period = get_or_create_current_period(db)
+    current_period.week_end += timedelta(days=7 * params.weeks)
+    current_period.deadline += timedelta(days=7 * params.weeks)
+    db.commit()
+    db.refresh(current_period)
+    return {
+        "message": f"已将当前周期{'顺延' if params.weeks > 0 else '缩短'} {abs(params.weeks)} 周",
+        "week_end": current_period.week_end.isoformat(),
+        "deadline": current_period.deadline.isoformat()
+    }
+
+
 # ── 页面路由 ──────────────────────────────────
 
 @app.get("/")
@@ -127,9 +146,12 @@ def page_summary(request: Request, db: Session = Depends(get_db)):
         .all()
     )
     current_period = get_or_create_current_period(db)
+    current_summary = next((s for s in all_summaries if s.week_period_id == current_period.id), None)
+
     return jinja_templates.TemplateResponse("summary.html", {
         "request": request,
         "active_page": "summary",
         "summaries": all_summaries,
         "current_period_id": current_period.id,
+        "current_summary": current_summary,
     })

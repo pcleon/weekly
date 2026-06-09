@@ -6,21 +6,26 @@ from app.database import get_db
 from app.models import WeeklySummary
 from app.schemas import SummaryOut, SummaryUpdate
 from app.services.report_service import get_or_create_current_period
-from app.services.summary_service import generate_summary, get_summary_prompt, save_summary_prompt
+from app.services.summary_service import generate_summary, get_summary_prompt, save_summary_prompt, get_system_prompt, save_system_prompt
 
 router = APIRouter(prefix="/api/summaries", tags=["汇总管理"])
 
 class PromptUpdate(BaseModel):
-    content: str
+    user_template: str
+    system_prompt: str
 
 @router.get("/prompt")
 def get_prompt():
-    return {"content": get_summary_prompt()}
+    return {
+        "user_template": get_summary_prompt(),
+        "system_prompt": get_system_prompt()
+    }
 
 @router.put("/prompt")
 def update_prompt(data: PromptUpdate):
-    save_summary_prompt(data.content)
-    return {"message": "提示词已更新"}
+    save_summary_prompt(data.user_template)
+    save_system_prompt(data.system_prompt)
+    return {"message": "提示词配置已更新"}
 
 
 @router.post("/generate", response_model=SummaryOut)

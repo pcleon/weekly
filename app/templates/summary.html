@@ -18,6 +18,10 @@
   </div>
   <p style="color:var(--text-secondary);font-size:14px">
     点击按钮将对本周所有已提交的周报进行 AI 智能汇总。
+    {% if current_summary %}
+    <br><span style="color:var(--accent); font-weight:600;">(本周期最近一次生成时间：{{
+      current_summary.generated_at.strftime('%Y-%m-%d %H:%M') }})</span>
+    {% endif %}
   </p>
 </div>
 
@@ -86,7 +90,15 @@
     </div>
     <form onsubmit="submitPromptConfig(event)">
       <div class="form-group">
-        <textarea id="promptContent" class="form-control" style="min-height: 400px; font-family: monospace;"></textarea>
+        <label>系统设定与指令 (System Prompt)</label>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom: 8px;">告诉大模型它的角色以及必须遵守的规则。</p>
+        <textarea id="systemPromptContent" class="form-control"
+          style="min-height: 120px; font-family: monospace;"></textarea>
+      </div>
+      <div class="form-group">
+        <label>汇总 Markdown 模板 (User Template)</label>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom: 8px;">在此处编辑最终期望生成的周报框架排版结构。</p>
+        <textarea id="promptContent" class="form-control" style="min-height: 300px; font-family: monospace;"></textarea>
       </div>
       <button type="submit" class="btn btn-primary btn-lg" style="width:100%">保存配置</button>
     </form>
@@ -100,7 +112,8 @@
   async function openPromptConfig() {
     try {
       const res = await api('/api/summaries/prompt');
-      document.getElementById('promptContent').value = res.content;
+      document.getElementById('promptContent').value = res.user_template;
+      document.getElementById('systemPromptContent').value = res.system_prompt;
       openModal('promptConfigModal');
     } catch (err) {
       showToast(err.message, 'error');
@@ -109,17 +122,17 @@
 
   async function submitPromptConfig(e) {
     e.preventDefault();
-    const content = document.getElementById('promptContent').value.trim();
-    if (!content) {
-      showToast('提示词不能为空', 'error');
-      return;
-    }
+    const content = document.getElementById('promptContent').value;
+    const systemPrompt = document.getElementById('systemPromptContent').value;
     try {
       await api('/api/summaries/prompt', {
         method: 'PUT',
-        body: JSON.stringify({ content: content })
+        body: JSON.stringify({
+          user_template: content,
+          system_prompt: systemPrompt
+        })
       });
-      showToast('提示词已更新');
+      showToast('配置已保存');
       closeModal('promptConfigModal');
     } catch (err) {
       showToast(err.message, 'error');
