@@ -48,7 +48,10 @@ SYSTEM_PROMPT_FILE_PATH = os.path.join(os.path.dirname(__file__), "..", "system_
 
 DEFAULT_SYSTEM_PROMPT = """你是一个专业的团队周报汇总助手。请根据以下团队成员的周报内容，生成一份结构清晰的团队周报汇总。
 
+在汇总“一、本周工作概述”部分时，不要将所有事项列出，要进行提炼与汇总，只选取具有较大影响或重要进展的部分进行概述。
+
 **必须严格按照以下 Markdown 模板格式输出，不要改变或增删任何标题：**"""
+
 
 def get_summary_prompt() -> str:
     if os.path.exists(PROMPT_FILE_PATH):
@@ -128,7 +131,7 @@ def generate_summary(db: Session, period: WeekPeriod) -> WeeklySummary:
         logger.info("LLM 汇总报告生成成功")
     except Exception as e:
         from loguru import logger
-        logger.error(f"LLM 调用失败: {str(e)}", exc_info=True)
+        logger.error("LLM 调用失败: {}", e, exc_info=True)
         # LLM 调用失败时回退到简单拼接
         summary_content = f"（LLM 调用失败: {e}）\n\n{reports_text}"
 

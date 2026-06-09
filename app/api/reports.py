@@ -3,10 +3,21 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models import WeeklyReport, WeekPeriod, Member
-from app.schemas import ReportCreate, ReportUpdate, ReportOut, SubmissionStatus
+from app.schemas import ReportCreate, ReportUpdate, ReportOut, SubmissionStatus, TypoCheckRequest, TypoCheckResponse
 from app.services.report_service import get_or_create_current_period, get_submission_status
 
 router = APIRouter(prefix="/api/reports", tags=["周报管理"])
+
+
+@router.post("/check-typos", response_model=TypoCheckResponse)
+def api_check_typos(data: TypoCheckRequest):
+    from app.services.typo_service import check_typos
+    has_typos, corrected, explanation = check_typos(data.content)
+    return {
+        "has_typos": has_typos,
+        "corrected_content": corrected,
+        "explanation": explanation
+    }
 
 
 @router.get("", response_model=list[ReportOut])
@@ -86,3 +97,4 @@ def list_periods(db: Session = Depends(get_db)):
     from app.schemas import WeekPeriodOut
     periods = db.query(WeekPeriod).order_by(WeekPeriod.week_start.desc()).all()
     return [WeekPeriodOut.model_validate(p) for p in periods]
+
