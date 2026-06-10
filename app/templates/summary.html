@@ -22,6 +22,9 @@
     <br><span style="color:var(--accent); font-weight:600;">(本周期最近一次生成时间：{{
       current_summary.generated_at.strftime('%Y-%m-%d %H:%M') }})</span>
     {% endif %}
+    {% if last_report %}
+    <br><span style="color:var(--accent); font-weight:600;">(最后提交人员：{{ last_report.member.name }} - {{ last_report.submitted_at.strftime('%Y-%m-%d %H:%M') }})</span>
+    {% endif %}
   </p>
 </div>
 

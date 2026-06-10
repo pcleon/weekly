@@ -38,14 +38,25 @@ def get_or_create_current_period(db: Session) -> WeekPeriod:
 def get_submission_status(db: Session, period: WeekPeriod) -> dict:
     """获取指定周期的提交状态"""
     all_members = db.query(Member).filter(Member.is_active == True).all()
-    submitted_ids = {
-        r.member_id
-        for r in db.query(WeeklyReport.member_id).filter(
-            WeeklyReport.week_period_id == period.id
-        ).all()
-    }
-    submitted = [m for m in all_members if m.id in submitted_ids]
+    
+    reports = db.query(WeeklyReport).filter(
+        WeeklyReport.week_period_id == period.id
+    ).order_by(WeeklyReport.submitted_at.desc()).all()
+    
+    submitted_ids = set()
+    submitted = []
+    
+    member_dict = {m.id: m for m in all_members}
+    for r in reports:
+        if r.member_id in member_dict and r.member_id not in submitted_ids:
+            submitted_ids.add(r.member_id)
+            submitted.append({
+                "member": member_dict[r.member_id],
+                "submitted_at": r.submitted_at
+            })
+            
     not_submitted = [m for m in all_members if m.id not in submitted_ids]
+    
     return {
         "week_period": period,
         "submitted": submitted,

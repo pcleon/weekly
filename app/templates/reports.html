@@ -51,11 +51,10 @@
             <button class="btn btn-secondary btn-sm" onclick="viewReport({{ r.id }})">查看</button>
             {% if r.week_period_id == current_period_id %}
             <button class="btn btn-primary btn-sm" onclick="openEditReport({{ r.id }})">重新提交</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteReport({{ r.id }})">删除</button>
             {% else %}
             <button class="btn btn-primary btn-sm" disabled title="历史周期不可修改">重新提交</button>
-            <button class="btn btn-danger btn-sm" disabled title="历史周期不可修改">删除</button>
             {% endif %}
+            <button class="btn btn-danger btn-sm" onclick="deleteReport({{ r.id }})">删除</button>
           </td>
         </tr>
         {% endfor %}
@@ -173,7 +172,7 @@ async function submitEditReport(e) {
 async function deleteReport(id) {
   if (!confirm('确定要删除这篇周报记录吗？')) return;
   try {
-    await api(`/api/reports/${id}`, { method: 'DELETE' });
+    await api(`/api/reports/${id}/delete`, { method: 'POST' });
     showToast('已删除');
     location.reload();
   } catch(err) {

@@ -533,8 +533,8 @@ select.form-control {
 
 /* ── 成员列表 (首页) ─────────────────────── */
 .member-status-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 

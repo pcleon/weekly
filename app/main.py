@@ -147,6 +147,14 @@ def page_summary(request: Request, db: Session = Depends(get_db)):
     )
     current_period = get_or_create_current_period(db)
     current_summary = next((s for s in all_summaries if s.week_period_id == current_period.id), None)
+    
+    last_report = (
+        db.query(WeeklyReport)
+        .filter(WeeklyReport.week_period_id == current_period.id)
+        .options(joinedload(WeeklyReport.member))
+        .order_by(WeeklyReport.submitted_at.desc())
+        .first()
+    )
 
     return jinja_templates.TemplateResponse("summary.html", {
         "request": request,
@@ -154,4 +162,5 @@ def page_summary(request: Request, db: Session = Depends(get_db)):
         "summaries": all_summaries,
         "current_period_id": current_period.id,
         "current_summary": current_summary,
+        "last_report": last_report,
     })

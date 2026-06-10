@@ -72,16 +72,6 @@ class WeekPeriodOut(BaseModel):
 
 # ── WeeklyReport ───────────────────────────────────
 
-class TypoCheckRequest(BaseModel):
-    content: str
-
-
-class TypoCheckResponse(BaseModel):
-    has_typos: bool
-    corrected_content: str
-    explanation: str
-
-
 class ReportCreate(BaseModel):
     member_id: int
     template_id: int | None = None

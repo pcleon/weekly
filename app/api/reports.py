@@ -3,21 +3,10 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models import WeeklyReport, WeekPeriod, Member
-from app.schemas import ReportCreate, ReportUpdate, ReportOut, SubmissionStatus, TypoCheckRequest, TypoCheckResponse
+from app.schemas import ReportCreate, ReportUpdate, ReportOut, SubmissionStatus
 from app.services.report_service import get_or_create_current_period, get_submission_status
 
 router = APIRouter(prefix="/api/reports", tags=["周报管理"])
-
-
-@router.post("/check-typos", response_model=TypoCheckResponse)
-def api_check_typos(data: TypoCheckRequest):
-    from app.services.typo_service import check_typos
-    has_typos, corrected, explanation = check_typos(data.content)
-    return {
-        "has_typos": has_typos,
-        "corrected_content": corrected,
-        "explanation": explanation
-    }
 
 
 @router.get("", response_model=list[ReportOut])
@@ -77,12 +66,14 @@ def delete_report(report_id: int, db: Session = Depends(get_db)):
     report = db.get(WeeklyReport, report_id)
     if not report:
         raise HTTPException(404, "周报不存在")
-    current_period = get_or_create_current_period(db)
-    if report.week_period_id != current_period.id:
-        raise HTTPException(403, "历史周期的周报不允许删除")
     db.delete(report)
     db.commit()
     return {"message": "已删除"}
+
+
+@router.post("/{report_id}/delete")
+def delete_report_post(report_id: int, db: Session = Depends(get_db)):
+    return delete_report(report_id, db)
 
 
 @router.get("/status", response_model=SubmissionStatus)

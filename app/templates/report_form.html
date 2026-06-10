@@ -95,30 +95,6 @@ async function submitReportWithMDE(e) {
 
   try {
     submitBtn.disabled = true;
-    submitBtn.textContent = '正在检查错别字...';
-
-    // 1. 检查错别字
-    const checkRes = await api('/api/reports/check-typos', {
-      method: 'POST',
-      body: JSON.stringify({ content })
-    });
-
-    if (checkRes.has_typos) {
-      if (easyMDE) {
-        easyMDE.value(checkRes.corrected_content);
-      } else {
-        form.querySelector('[name="content"]').value = checkRes.corrected_content;
-      }
-      content = checkRes.corrected_content;
-      
-      const confirmMsg = "AI 检测到错别字并已自动修改：\n\n" + checkRes.explanation + "\n\n是否直接提交修改后的内容？(点击取消可返回手动检查)";
-      if (!confirm(confirmMsg)) {
-        submitBtn.disabled = false;
-        submitBtn.textContent = originalBtnText;
-        return;
-      }
-    }
-
     submitBtn.textContent = '正在提交...';
 
     // 2. 提交周报
