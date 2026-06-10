@@ -91,6 +91,7 @@ class ReportOut(BaseModel):
     submitted_at: datetime
     updated_at: datetime
     member: MemberOut | None = None
+    week_period: WeekPeriodOut | None = None
 
     model_config = {"from_attributes": True}
 

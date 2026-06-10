@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, joinedload
@@ -8,7 +8,7 @@ from app.database import get_db
 from app.models import Member, ReportTemplate, WeeklyReport, WeeklySummary, WeekPeriod
 from app.services.report_service import get_or_create_current_period, get_submission_status
 
-from app.api import members, templates, reports, summaries
+from app.api import members, templates, reports, summaries, pages
 from app.logger import setup_logging
 
 # 初始化日志配置
@@ -18,15 +18,21 @@ settings = get_settings()
 
 app = FastAPI(title=settings.app_title)
 
-# 静态文件和模板
+# 静态文件
+import os
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
-jinja_templates = Jinja2Templates(directory="app/templates")
+
+frontend_dist = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
+frontend_assets = os.path.join(frontend_dist, "assets")
+os.makedirs(frontend_assets, exist_ok=True)
+app.mount("/assets", StaticFiles(directory=frontend_assets), name="assets")
 
 # 注册 API 路由
 app.include_router(members.router)
 app.include_router(templates.router)
 app.include_router(reports.router)
 app.include_router(summaries.router)
+app.include_router(pages.router)
 
 from app.config import DeadlineConfig, get_deadline_config, save_deadline_config
 
@@ -63,104 +69,16 @@ def api_extend_period(params: PeriodExtendParams, db: Session = Depends(get_db))
     }
 
 
-# ── 页面路由 ──────────────────────────────────
+# ── 页面路由 (React SPA Catch-all) ──────────────────────────────────
+from fastapi.responses import HTMLResponse
 
-@app.get("/")
-def page_index(request: Request, db: Session = Depends(get_db)):
-    period = get_or_create_current_period(db)
-    status = get_submission_status(db, period)
-    weekdays = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
-    deadline_str = f"{weekdays[period.deadline.weekday()]} {period.deadline.strftime('%H:%M')}"
-    return jinja_templates.TemplateResponse("index.html", {
-        "request": request,
-        "active_page": "index",
-        "period": period,
-        "status": status,
-        "deadline_str": deadline_str,
-    })
-
-
-@app.get("/members")
-def page_members(request: Request, db: Session = Depends(get_db)):
-    all_members = db.query(Member).order_by(Member.id).all()
-    return jinja_templates.TemplateResponse("members.html", {
-        "request": request,
-        "active_page": "members",
-        "members": all_members,
-    })
-
-
-@app.get("/report/new")
-def page_report_form(request: Request, db: Session = Depends(get_db)):
-    period = get_or_create_current_period(db)
-    active_members = db.query(Member).filter(Member.is_active == True).all()
-    all_templates = db.query(ReportTemplate).all()
-    default_tpl = db.query(ReportTemplate).filter(ReportTemplate.is_default == True).first()
-    return jinja_templates.TemplateResponse("report_form.html", {
-        "request": request,
-        "active_page": "report_form",
-        "period": period,
-        "members": active_members,
-        "templates": all_templates,
-        "default_template": default_tpl,
-    })
-
-
-@app.get("/reports")
-def page_reports(request: Request, period_id: int | None = None, db: Session = Depends(get_db)):
-    query = db.query(WeeklyReport).options(
-        joinedload(WeeklyReport.member),
-        joinedload(WeeklyReport.week_period),
-    )
-    if period_id:
-        query = query.filter(WeeklyReport.week_period_id == period_id)
-    all_reports = query.order_by(WeeklyReport.submitted_at.desc()).all()
-    periods = db.query(WeekPeriod).order_by(WeekPeriod.week_start.desc()).all()
-    current_period = get_or_create_current_period(db)
-    return jinja_templates.TemplateResponse("reports.html", {
-        "request": request,
-        "active_page": "reports",
-        "reports": all_reports,
-        "periods": periods,
-        "selected_period_id": period_id,
-        "current_period_id": current_period.id,
-    })
-
-
-@app.get("/templates")
-def page_templates(request: Request, db: Session = Depends(get_db)):
-    all_templates = db.query(ReportTemplate).order_by(ReportTemplate.id).all()
-    return jinja_templates.TemplateResponse("templates_mgmt.html", {
-        "request": request,
-        "active_page": "templates",
-        "templates": all_templates,
-    })
-
-
-@app.get("/summary")
-def page_summary(request: Request, db: Session = Depends(get_db)):
-    all_summaries = (
-        db.query(WeeklySummary)
-        .options(joinedload(WeeklySummary.week_period))
-        .order_by(WeeklySummary.generated_at.desc())
-        .all()
-    )
-    current_period = get_or_create_current_period(db)
-    current_summary = next((s for s in all_summaries if s.week_period_id == current_period.id), None)
-    
-    last_report = (
-        db.query(WeeklyReport)
-        .filter(WeeklyReport.week_period_id == current_period.id)
-        .options(joinedload(WeeklyReport.member))
-        .order_by(WeeklyReport.submitted_at.desc())
-        .first()
-    )
-
-    return jinja_templates.TemplateResponse("summary.html", {
-        "request": request,
-        "active_page": "summary",
-        "summaries": all_summaries,
-        "current_period_id": current_period.id,
-        "current_summary": current_summary,
-        "last_report": last_report,
-    })
+@app.get("/{full_path:path}")
+def serve_react_app(full_path: str):
+    if full_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="API route not found")
+        
+    index_path = os.path.join(frontend_dist, "index.html")
+    if os.path.exists(index_path):
+        with open(index_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read(), status_code=200)
+    return HTMLResponse(content="React app not built yet. Run 'npm run build' in frontend directory.", status_code=404)

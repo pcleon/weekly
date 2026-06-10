@@ -25,11 +25,16 @@
     <div class="label" style="display:flex; justify-content:space-between; align-items:center;">
       <span>截止倒计时 ({{ deadline_str }})</span>
       <div>
-        <button class="btn btn-sm btn-secondary" onclick="extendPeriod(1)" style="padding:2px 8px;font-size:12px;background:var(--bg-primary);" title="如果遇到节假日，可将当前收集周期顺延一周">📅 顺延</button>
-        <button class="btn btn-sm btn-secondary" onclick="openDeadlineConfig()" style="padding:2px 8px;font-size:12px;background:var(--bg-primary);">⚙️ 设置</button>
+        <button class="btn btn-sm btn-secondary" onclick="extendPeriod(1)"
+          style="padding:2px 8px;font-size:12px;background:var(--bg-primary);" title="如果遇到节假日，可将当前收集周期顺延一周">📅
+          顺延</button>
+        <button class="btn btn-sm btn-secondary" onclick="openDeadlineConfig()"
+          style="padding:2px 8px;font-size:12px;background:var(--bg-primary);">⚙️ 设置</button>
       </div>
     </div>
-    <div id="countdown" class="countdown" style="background:#f0f0f0; color:#333; padding: 6px; border-radius: 6px; text-align: center; font-family: monospace; font-size:18px; margin-top:8px;"></div>
+    <div id="countdown" class="countdown"
+      style="background:#f0f0f0; color:#333; padding: 6px; border-radius: 6px; text-align: center; font-family: monospace; font-size:18px; margin-top:8px;">
+    </div>
   </div>
 </div>
 
@@ -52,7 +57,7 @@
         <tr>
           <th>状态</th>
           <th>姓名</th>
-          <th>部门</th>
+          <th>团队</th>
           <th>提交时间</th>
         </tr>
       </thead>
@@ -70,7 +75,8 @@
           <td><span class="badge submitted"><span class="dot yes"></span> 已交</span></td>
           <td>{{ m.member.name if m.member else m.name }}</td>
           <td>{{ m.member.department if m.member else m.department }}</td>
-          <td style="color: var(--text-muted);">{{ m.submitted_at.strftime('%m-%d %H:%M') if m.submitted_at else '' }}</td>
+          <td style="color: var(--text-muted);">{{ m.submitted_at.strftime('%m-%d %H:%M') if m.submitted_at else '' }}
+          </td>
         </tr>
         {% endfor %}
       </tbody>
@@ -116,51 +122,51 @@
 
 {% block scripts %}
 <script>
-async function openDeadlineConfig() {
-  try {
-    const res = await api('/api/settings/deadline');
-    document.getElementById('deadlineDay').value = res.day_of_week;
-    document.getElementById('deadlineHour').value = res.hour;
-    document.getElementById('deadlineMinute').value = res.minute;
-    openModal('deadlineConfigModal');
-  } catch(err) {
-    showToast(err.message, 'error');
+  async function openDeadlineConfig() {
+    try {
+      const res = await api('/api/settings/deadline');
+      document.getElementById('deadlineDay').value = res.day_of_week;
+      document.getElementById('deadlineHour').value = res.hour;
+      document.getElementById('deadlineMinute').value = res.minute;
+      openModal('deadlineConfigModal');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
   }
-}
 
-async function submitDeadlineConfig(e) {
-  e.preventDefault();
-  const day_of_week = parseInt(document.getElementById('deadlineDay').value);
-  const hour = parseInt(document.getElementById('deadlineHour').value);
-  const minute = parseInt(document.getElementById('deadlineMinute').value);
-  try {
-    const res = await api('/api/settings/deadline', {
-      method: 'PUT',
-      body: JSON.stringify({ day_of_week, hour, minute })
-    });
-    showToast(res.message);
-    closeModal('deadlineConfigModal');
-    location.reload();
-  } catch(err) {
-    showToast(err.message, 'error');
+  async function submitDeadlineConfig(e) {
+    e.preventDefault();
+    const day_of_week = parseInt(document.getElementById('deadlineDay').value);
+    const hour = parseInt(document.getElementById('deadlineHour').value);
+    const minute = parseInt(document.getElementById('deadlineMinute').value);
+    try {
+      const res = await api('/api/settings/deadline', {
+        method: 'PUT',
+        body: JSON.stringify({ day_of_week, hour, minute })
+      });
+      showToast(res.message);
+      closeModal('deadlineConfigModal');
+      location.reload();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
   }
-}
 
-async function extendPeriod(weeks) {
-  const action = weeks > 0 ? "顺延" : "缩短";
-  if (!confirm(`确定要将当前收集周期${action} ${Math.abs(weeks)} 周吗？\n注意：这也会自动将截止时间${action}。`)) return;
-  try {
-    const res = await api('/api/settings/period/extend', {
-      method: 'POST',
-      body: JSON.stringify({ weeks })
-    });
-    showToast(res.message);
-    location.reload();
-  } catch(err) {
-    showToast(err.message, 'error');
+  async function extendPeriod(weeks) {
+    const action = weeks > 0 ? "顺延" : "缩短";
+    if (!confirm(`确定要将当前收集周期${action} ${Math.abs(weeks)} 周吗？\n注意：这也会自动将截止时间${action}。`)) return;
+    try {
+      const res = await api('/api/settings/period/extend', {
+        method: 'POST',
+        body: JSON.stringify({ weeks })
+      });
+      showToast(res.message);
+      location.reload();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
   }
-}
 
-startCountdown('{{ period.deadline.isoformat() }}');
+  startCountdown('{{ period.deadline.isoformat() }}');
 </script>
 {% endblock %}
