@@ -12,3 +12,6 @@ langchain-openai
 langchain-anthropic
 python-docx
 loguru
+authlib
+httpx
+itsdangerous

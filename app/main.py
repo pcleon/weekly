@@ -28,6 +28,12 @@ os.makedirs(frontend_assets, exist_ok=True)
 app.mount("/assets", StaticFiles(directory=frontend_assets), name="assets")
 
 # 注册 API 路由
+from starlette.middleware.sessions import SessionMiddleware
+app.add_middleware(SessionMiddleware, secret_key=settings.sso_secret_key or "secret-key")
+
+from app.api import auth
+app.include_router(auth.router, prefix="/api")
+
 app.include_router(members.router)
 app.include_router(templates.router)
 app.include_router(reports.router)

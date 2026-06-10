@@ -5,7 +5,9 @@ from app.database import get_db
 from app.models import Member
 from app.schemas import MemberCreate, MemberUpdate, MemberOut
 
-router = APIRouter(prefix="/api/members", tags=["人员管理"])
+from app.api.deps import get_current_user
+
+router = APIRouter(prefix="/api/members", tags=["人员管理"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("", response_model=list[MemberOut])

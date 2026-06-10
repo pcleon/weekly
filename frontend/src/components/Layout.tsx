@@ -1,7 +1,14 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { BarChart3, Users, Edit3, Folder, FileText, Sparkles } from 'lucide-react';
+import { BarChart3, Users, Edit3, Folder, FileText, Sparkles, LogOut } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import api from '../api';
 
 export default function Layout() {
+  const [user, setUser] = useState<{ id: number, name: string, department: string } | null>(null);
+
+  useEffect(() => {
+    api.get('/auth/me').then((res: any) => setUser(res)).catch(() => {});
+  }, []);
   const navClass = ({ isActive }: { isActive: boolean }) => 
     `flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors mb-0.5 ${
       isActive 
@@ -39,6 +46,28 @@ export default function Layout() {
             <span className={iconClass}><Sparkles size={18} /></span> AI 汇总
           </NavLink>
         </nav>
+        
+        {/* 用户信息与登出 */}
+        {user && (
+          <div className="px-5 mt-auto">
+            <div className="border-t border-slate-200 pt-5 pb-1 flex flex-col gap-3">
+              <div className="flex items-center gap-3 px-2">
+                <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 font-bold flex items-center justify-center flex-shrink-0">
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-col overflow-hidden">
+                  <div className="text-sm font-bold text-slate-900 truncate">{user.name}</div>
+                  <div className="text-[11px] text-slate-500 truncate">{user.department}</div>
+                </div>
+              </div>
+              <form action="/api/auth/logout" method="POST">
+                <button type="submit" className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer border-none bg-transparent">
+                  <span className={iconClass}><LogOut size={16} /></span> 退出登录
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
       </aside>
 
       {/* 主内容 */}

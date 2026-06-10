@@ -18,6 +18,15 @@ class Settings(BaseSettings):
     # 应用
     app_title: str = "周报汇总系统"
     timezone: str = "Asia/Shanghai"
+    
+    # SSO配置
+    enable_sso: bool = False
+    sso_client_id: str = ""
+    sso_client_secret: str = ""
+    sso_authorize_url: str = ""
+    sso_token_url: str = ""
+    sso_userinfo_url: str = ""
+    sso_secret_key: str = "change_me_to_a_random_string_in_production"
 
     @property
     def database_url(self) -> str:

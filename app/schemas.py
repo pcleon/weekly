@@ -114,10 +114,12 @@ class SummaryOut(BaseModel):
 
 # ── 提交状态 ────────────────────────────────────────
 
+from typing import Any
+
 class SubmissionStatus(BaseModel):
     """当前周期的提交状态"""
     week_period: WeekPeriodOut
-    submitted: list[MemberOut]
+    submitted: list[Any]
     not_submitted: list[MemberOut]
     total: int
     submitted_count: int

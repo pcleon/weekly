@@ -6,7 +6,9 @@ from app.models import WeeklyReport, WeekPeriod, Member
 from app.schemas import ReportCreate, ReportUpdate, ReportOut, SubmissionStatus
 from app.services.report_service import get_or_create_current_period, get_submission_status
 
-router = APIRouter(prefix="/api/reports", tags=["周报管理"])
+from app.api.deps import get_current_user
+
+router = APIRouter(prefix="/api/reports", tags=["周报管理"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("", response_model=list[ReportOut])

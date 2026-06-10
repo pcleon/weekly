@@ -8,7 +8,9 @@ from app.schemas import SummaryOut, SummaryUpdate
 from app.services.report_service import get_or_create_current_period
 from app.services.summary_service import generate_summary, get_summary_prompt, save_summary_prompt, get_system_prompt, save_system_prompt
 
-router = APIRouter(prefix="/api/summaries", tags=["汇总管理"])
+from app.api.deps import get_current_user
+
+router = APIRouter(prefix="/api/summaries", tags=["汇总管理"], dependencies=[Depends(get_current_user)])
 
 class PromptUpdate(BaseModel):
     user_template: str

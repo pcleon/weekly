@@ -175,7 +175,7 @@ export default function Dashboard() {
                   </tr>
                 ))}
                 {status.submitted.map((m: any) => (
-                  <tr key={`s_${m.id}`} className="transition-colors hover:bg-slate-50">
+                  <tr key={`s_${m.member ? m.member.id : m.id}`} className="transition-colors hover:bg-slate-50">
                     <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle"><span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-500"><span className="w-2 h-2 rounded-full shrink-0 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span> 已交</span></td>
                     <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">{m.member ? m.member.name : m.name}</td>
                     <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">{m.member ? m.member.department : m.department}</td>

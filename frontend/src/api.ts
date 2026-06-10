@@ -11,6 +11,13 @@ export function showToast(message: string, type: 'success' | 'error' = 'success'
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
+    if (error.response?.status === 401) {
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+      return Promise.reject(new Error('未登录'));
+    }
+
     let message = '请求失败';
     if (error.response?.data?.detail) {
       if (typeof error.response.data.detail === 'string') {

@@ -6,7 +6,9 @@ from app.models import Member, ReportTemplate, WeeklyReport, WeeklySummary, Week
 from app.services.report_service import get_or_create_current_period, get_submission_status
 from app.schemas import WeekPeriodOut, ReportOut, SummaryOut, TemplateOut, MemberOut
 
-router = APIRouter(prefix="/api/pages", tags=["页面聚合数据"])
+from app.api.deps import get_current_user
+
+router = APIRouter(prefix="/api/pages", tags=["页面聚合数据"], dependencies=[Depends(get_current_user)])
 
 @router.get("/dashboard")
 def get_dashboard_data(db: Session = Depends(get_db)):

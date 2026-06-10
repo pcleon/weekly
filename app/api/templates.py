@@ -11,7 +11,9 @@ from app.schemas import TemplateUpdate, TemplateOut
 
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads", "templates")
 
-router = APIRouter(prefix="/api/templates", tags=["模板管理"])
+from app.api.deps import get_current_user
+
+router = APIRouter(prefix="/api/templates", tags=["模板管理"], dependencies=[Depends(get_current_user)])
 
 
 def extract_docx_text(file_path: str) -> str:

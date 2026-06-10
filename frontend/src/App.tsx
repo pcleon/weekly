@@ -7,6 +7,7 @@ import ReportForm from './pages/ReportForm';
 import Reports from './pages/Reports';
 import Templates from './pages/Templates';
 import Summary from './pages/Summary';
+import Login from './pages/Login';
 import './index.css';
 
 function ToastContainer() {
@@ -41,6 +42,7 @@ export default function App() {
     <BrowserRouter>
       <ToastContainer />
       <Routes>
+        <Route path="/login" element={<Login />} />
         <Route path="/" element={<Layout />}>
           <Route index element={<Dashboard />} />
           <Route path="members" element={<Members />} />
