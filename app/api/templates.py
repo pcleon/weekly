@@ -50,14 +50,26 @@ async def create_template(
 
     # 处理 docx 上传
     if file and file.filename:
-        if not file.filename.endswith(".docx"):
-            raise HTTPException(400, "仅支持 .docx 格式文件")
+        if not file.filename.lower().endswith(".docx"):
+            raise HTTPException(400, "安全警告：仅支持 .docx 格式文件")
+            
+        file_data = await file.read()
+        
+        # 安全检查 1: 文件大小限制 (最大 10MB)
+        MAX_SIZE = 10 * 1024 * 1024
+        if len(file_data) > MAX_SIZE:
+            raise HTTPException(413, "安全警告：文件大小不能超过 10MB")
+            
+        # 安全检查 2: 文件魔数 (Magic Number) 校验真实的 docx(zip) 文件头
+        if len(file_data) < 4 or not file_data.startswith(b"PK"):
+            raise HTTPException(400, "安全警告：非法的文件内容，文件可能被伪装")
+            
         # 保存文件
         os.makedirs(UPLOAD_DIR, exist_ok=True)
         filename = f"{uuid.uuid4().hex}_{file.filename}"
         file_path = os.path.join(UPLOAD_DIR, filename)
         with open(file_path, "wb") as f:
-            f.write(await file.read())
+            f.write(file_data)
         # 提取文本内容
         if not content.strip():
             content = extract_docx_text(file_path)

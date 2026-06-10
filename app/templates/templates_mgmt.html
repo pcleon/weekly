@@ -81,12 +81,14 @@
       </div>
       <div class="form-group">
         <label>上传 docx 文件（可选）</label>
-        <input type="file" name="file" class="form-control" accept=".docx" id="docxFileInput">
+        <input type="file" name="file" class="form-control"
+          accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" id="docxFileInput">
         <p style="font-size:12px;color:var(--text-muted);margin-top:4px">上传 docx 后将自动提取文本内容作为模板</p>
       </div>
       <div class="form-group">
         <label>模板内容（支持 Markdown，上传 docx 后自动填充）</label>
-        <textarea name="content" class="form-control" placeholder="## 本周工作&#10;&#10;- &#10;&#10;## 下周计划&#10;&#10;- &#10;&#10;## 需要协调的问题&#10;&#10;- "></textarea>
+        <textarea name="content" class="form-control"
+          placeholder="## 本周工作&#10;&#10;- &#10;&#10;## 下周计划&#10;&#10;- &#10;&#10;## 需要协调的问题&#10;&#10;- "></textarea>
       </div>
       <div class="form-group" style="display:flex;align-items:center;gap:8px">
         <input type="checkbox" name="is_default" id="isDefault">
@@ -111,44 +113,76 @@
 
 {% block scripts %}
 <script>
-async function viewTemplateContent(id) {
-  try {
-    const tpl = await api(`/api/templates/${id}`);
-    document.getElementById('viewTemplateName').textContent = tpl.name;
-    document.getElementById('viewTemplateContent').textContent = tpl.content;
-    openModal('viewTemplateModal');
-  } catch(err) {
-    showToast(err.message, 'error');
-  }
-}
-
-async function addTemplateWithFile(e) {
-  e.preventDefault();
-  const form = e.target;
-  const formData = new FormData();
-  formData.append('name', form.querySelector('[name="name"]').value.trim());
-  formData.append('content', form.querySelector('[name="content"]').value.trim());
-  formData.append('is_default', form.querySelector('[name="is_default"]').checked ? 'true' : 'false');
-
-  const fileInput = form.querySelector('[name="file"]');
-  if (fileInput.files.length > 0) {
-    formData.append('file', fileInput.files[0]);
-  }
-
-  if (!formData.get('name')) { showToast('请输入模板名称', 'error'); return; }
-
-  try {
-    const resp = await fetch('/api/templates', { method: 'POST', body: formData });
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({ detail: '创建失败' }));
-      throw new Error(err.detail || '创建失败');
+  async function viewTemplateContent(id) {
+    try {
+      const tpl = await api(`/api/templates/${id}`);
+      document.getElementById('viewTemplateName').textContent = tpl.name;
+      document.getElementById('viewTemplateContent').textContent = tpl.content;
+      openModal('viewTemplateModal');
+    } catch (err) {
+      showToast(err.message, 'error');
     }
-    showToast('模板创建成功');
-    closeModal('addTemplateModal');
-    location.reload();
-  } catch (err) {
-    showToast(err.message, 'error');
   }
-}
+
+  async function addTemplateWithFile(e) {
+    e.preventDefault();
+    const form = e.target;
+    const fileInput = form.querySelector('[name="file"]');
+
+    if (fileInput.files.length > 0) {
+      const file = fileInput.files[0];
+
+      // 安全检查 1: 文件扩展名和 MIME 类型校验
+      if (!file.name.toLowerCase().endsWith('.docx')) {
+        showToast('安全警告：只能上传 .docx 格式的文件', 'error');
+        return;
+      }
+
+      // 安全检查 2: 文件大小限制 (最大 10MB)
+      const maxSize = 10 * 1024 * 1024;
+      if (file.size > maxSize) {
+        showToast('安全警告：文件大小不能超过 10MB', 'error');
+        return;
+      }
+
+      // 安全检查 3: 文件魔数 (Magic Number) 校验真实的 docx(zip) 文件头
+      try {
+        const buffer = await file.slice(0, 4).arrayBuffer();
+        const view = new Uint8Array(buffer);
+        // docx 是 zip 格式，ZIP 的文件头标识符为 PK (0x50 0x4B)
+        if (view.length < 4 || view[0] !== 0x50 || view[1] !== 0x4B) {
+          showToast('安全警告：非法的文件内容，文件可能被伪装', 'error');
+          return;
+        }
+      } catch (err) {
+        showToast('文件读取失败，无法验证安全性', 'error');
+        return;
+      }
+    }
+
+    const formData = new FormData();
+    formData.append('name', form.querySelector('[name="name"]').value.trim());
+    formData.append('content', form.querySelector('[name="content"]').value.trim());
+    formData.append('is_default', form.querySelector('[name="is_default"]').checked ? 'true' : 'false');
+
+    if (fileInput.files.length > 0) {
+      formData.append('file', fileInput.files[0]);
+    }
+
+    if (!formData.get('name')) { showToast('请输入模板名称', 'error'); return; }
+
+    try {
+      const resp = await fetch('/api/templates', { method: 'POST', body: formData });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ detail: '创建失败' }));
+        throw new Error(err.detail || '创建失败');
+      }
+      showToast('模板创建成功');
+      closeModal('addTemplateModal');
+      location.reload();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
 </script>
 {% endblock %}
