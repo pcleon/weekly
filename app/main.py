@@ -76,12 +76,17 @@ def api_extend_period(params: PeriodExtendParams, db: Session = Depends(get_db))
 
 
 # ── 页面路由 (React SPA Catch-all) ──────────────────────────────────
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 
 @app.get("/{full_path:path}")
 def serve_react_app(full_path: str):
     if full_path.startswith("api/"):
         raise HTTPException(status_code=404, detail="API route not found")
+        
+    # 如果请求的是实际存在的静态文件（例如 fonts/Inter-700.woff2, favicon.svg 等），则直接返回该文件
+    file_path = os.path.join(frontend_dist, full_path)
+    if os.path.isfile(file_path):
+        return FileResponse(file_path)
         
     index_path = os.path.join(frontend_dist, "index.html")
     if os.path.exists(index_path):

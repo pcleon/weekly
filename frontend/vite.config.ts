@@ -15,5 +15,8 @@ export default defineConfig({
         changeOrigin: true
       }
     }
+  },
+  build: {
+    assetsInlineLimit: 1024 * 500, // 内网部署时将字体等静态资源打包为base64，避免由于路径或MIME类型问题导致图标(如bold, italic)加载失败
   }
 })

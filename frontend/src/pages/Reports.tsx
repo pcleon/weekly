@@ -71,20 +71,11 @@ export default function Reports() {
     }
   };
 
-  const deleteReport = async (id: number) => {
-    if (!window.confirm('确定要删除这篇周报记录吗？')) return;
-    try {
-      await api.post(`/reports/${id}/delete`);
-      showToast('已删除');
-      fetchData();
-    } catch (e) {}
-  };
 
   if (loading || !data) return <div className="inline-flex items-center gap-1 mt-5"><div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-load-pulse"></div><div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-load-pulse delay-150"></div><div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-load-pulse delay-300"></div></div>;
 
   const btnPrimary = "inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-indigo-500 text-white border-none rounded-lg text-xs font-semibold cursor-pointer transition-all hover:bg-indigo-600 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)] disabled:opacity-50 disabled:cursor-not-allowed";
   const btnSecondary = "inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white text-slate-900 border border-slate-200 rounded-lg text-xs font-semibold cursor-pointer transition-all hover:bg-slate-50 hover:border-indigo-500";
-  const btnDanger = "inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-red-500/10 text-red-500 border-none rounded-lg text-xs font-semibold cursor-pointer transition-all hover:bg-red-500 hover:text-white";
   
   const selectClass = "px-3.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-900 text-sm transition-colors focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-500/15 appearance-none bg-[url('data:image/svg+xml,%3Csvg_xmlns=%22http://www.w3.org/2000/svg%22_width=%2212%22_height=%2212%22_viewBox=%220_0_24_24%22_fill=%22none%22_stroke=%22%239ca3b0%22_stroke-width=%222%22%3E%3Cpath_d=%22M6_9l6_6_6-6%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_12px_center] pr-9 inline-block w-auto";
 
@@ -136,7 +127,6 @@ export default function Reports() {
                       ) : (
                         <button className={`${btnPrimary} mr-1`} disabled title="历史周期不可修改">重新提交</button>
                       )}
-                      <button className={btnDanger} onClick={() => deleteReport(r.id)}>删除</button>
                     </td>
                   </tr>
                 ))}

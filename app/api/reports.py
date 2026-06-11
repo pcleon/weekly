@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
+from datetime import datetime
 
 from app.database import get_db
 from app.models import WeeklyReport, WeekPeriod, Member
@@ -58,25 +59,10 @@ def update_report(report_id: int, data: ReportUpdate, db: Session = Depends(get_
     if report.week_period_id != current_period.id:
         raise HTTPException(403, "历史周期的周报不允许修改")
     report.content = data.content
+    report.submitted_at = datetime.now()
     db.commit()
     db.refresh(report)
     return report
-
-
-@router.delete("/{report_id}")
-def delete_report(report_id: int, db: Session = Depends(get_db)):
-    report = db.get(WeeklyReport, report_id)
-    if not report:
-        raise HTTPException(404, "周报不存在")
-    db.delete(report)
-    db.commit()
-    return {"message": "已删除"}
-
-
-@router.post("/{report_id}/delete")
-def delete_report_post(report_id: int, db: Session = Depends(get_db)):
-    return delete_report(report_id, db)
-
 
 @router.get("/status", response_model=SubmissionStatus)
 def report_status(db: Session = Depends(get_db)):
