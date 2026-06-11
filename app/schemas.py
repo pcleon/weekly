@@ -76,10 +76,13 @@ class ReportCreate(BaseModel):
     member_id: int
     template_id: int | None = None
     content: str
+    personal_template_id: int | None = None
+    personal_content: str
 
 
 class ReportUpdate(BaseModel):
     content: str
+    personal_content: str
 
 
 class ReportOut(BaseModel):
@@ -92,8 +95,19 @@ class ReportOut(BaseModel):
     updated_at: datetime
     member: MemberOut | None = None
     week_period: WeekPeriodOut | None = None
+    personal_content: str | None = None
+    personal_template_id: int | None = None
 
     model_config = {"from_attributes": True}
+
+    @classmethod
+    def model_validate(cls, obj, *args, **kwargs):
+        data = super().model_validate(obj, *args, **kwargs)
+        if hasattr(obj, "personal_report") and obj.personal_report:
+            data.personal_content = obj.personal_report.content
+            data.personal_template_id = obj.personal_report.template_id
+        return data
+
 
 
 # ── WeeklySummary ──────────────────────────────────

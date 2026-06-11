@@ -1,6 +1,4 @@
 from fastapi import FastAPI, Request, Depends, HTTPException
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import get_settings
@@ -18,14 +16,11 @@ settings = get_settings()
 
 app = FastAPI(title=settings.app_title)
 
-# 静态文件
+# 前端静态资源挂载
 import os
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
-
 frontend_dist = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
 frontend_assets = os.path.join(frontend_dist, "assets")
 os.makedirs(frontend_assets, exist_ok=True)
-app.mount("/assets", StaticFiles(directory=frontend_assets), name="assets")
 
 # 注册 API 路由
 from starlette.middleware.sessions import SessionMiddleware

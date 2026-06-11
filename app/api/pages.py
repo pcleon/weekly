@@ -36,20 +36,30 @@ def get_report_form_data(db: Session = Depends(get_db)):
     }
 
 @router.get("/reports")
-def get_reports_page_data(period_id: int | None = None, db: Session = Depends(get_db)):
+def get_reports_page_data(
+    period_id: int | None = None,
+    member_id: int | None = None,
+    db: Session = Depends(get_db)
+):
     query = db.query(WeeklyReport).options(
         joinedload(WeeklyReport.member),
         joinedload(WeeklyReport.week_period),
+        joinedload(WeeklyReport.personal_report),
     )
     if period_id:
         query = query.filter(WeeklyReport.week_period_id == period_id)
+    if member_id:
+        query = query.filter(WeeklyReport.member_id == member_id)
     all_reports = query.order_by(WeeklyReport.submitted_at.desc()).all()
     periods = db.query(WeekPeriod).order_by(WeekPeriod.week_start.desc()).all()
+    active_members = db.query(Member).filter(Member.is_active == True).all()
     current_period = get_or_create_current_period(db)
     return {
         "reports": [ReportOut.model_validate(r) for r in all_reports],
         "periods": [WeekPeriodOut.model_validate(p) for p in periods],
+        "members": [MemberOut.model_validate(m) for m in active_members],
         "selected_period_id": period_id,
+        "selected_member_id": member_id,
         "current_period_id": current_period.id,
     }
 

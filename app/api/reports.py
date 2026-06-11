@@ -18,7 +18,10 @@ def list_reports(
     member_id: int | None = None,
     db: Session = Depends(get_db),
 ):
-    query = db.query(WeeklyReport).options(joinedload(WeeklyReport.member))
+    query = db.query(WeeklyReport).options(
+        joinedload(WeeklyReport.member),
+        joinedload(WeeklyReport.personal_report)
+    )
     if week_period_id:
         query = query.filter(WeeklyReport.week_period_id == week_period_id)
     if member_id:
@@ -38,31 +41,64 @@ def create_report(data: ReportCreate, db: Session = Depends(get_db)):
     if existing:
         raise HTTPException(400, "该成员本周已提交周报，请使用编辑功能修改")
 
-    report = WeeklyReport(
-        member_id=data.member_id,
-        template_id=data.template_id,
-        week_period_id=period.id,
-        content=data.content,
-    )
-    db.add(report)
-    db.commit()
-    db.refresh(report)
-    return report
+    from app.models import WeeklyPersonalReport
+    try:
+        report = WeeklyReport(
+            member_id=data.member_id,
+            template_id=data.template_id,
+            week_period_id=period.id,
+            content=data.content,
+        )
+        db.add(report)
+        db.flush()
+
+        personal_report = WeeklyPersonalReport(
+            weekly_report_id=report.id,
+            member_id=data.member_id,
+            template_id=data.personal_template_id,
+            week_period_id=period.id,
+            content=data.personal_content,
+        )
+        db.add(personal_report)
+        db.commit()
+        db.refresh(report)
+        return report
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(500, f"提交周报失败: {str(e)}")
 
 
 @router.put("/{report_id}", response_model=ReportOut)
 def update_report(report_id: int, data: ReportUpdate, db: Session = Depends(get_db)):
-    report = db.get(WeeklyReport, report_id)
+    report = db.query(WeeklyReport).options(joinedload(WeeklyReport.personal_report)).filter(WeeklyReport.id == report_id).first()
     if not report:
         raise HTTPException(404, "周报不存在")
     current_period = get_or_create_current_period(db)
     if report.week_period_id != current_period.id:
         raise HTTPException(403, "历史周期的周报不允许修改")
-    report.content = data.content
-    report.submitted_at = datetime.now()
-    db.commit()
-    db.refresh(report)
-    return report
+    
+    from app.models import WeeklyPersonalReport
+    try:
+        report.content = data.content
+        report.submitted_at = datetime.now()
+        
+        if report.personal_report:
+            report.personal_report.content = data.personal_content
+        else:
+            personal_report = WeeklyPersonalReport(
+                weekly_report_id=report.id,
+                member_id=report.member_id,
+                template_id=None,
+                week_period_id=report.week_period_id,
+                content=data.personal_content,
+            )
+            db.add(personal_report)
+        db.commit()
+        db.refresh(report)
+        return report
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(500, f"更新周报失败: {str(e)}")
 
 @router.get("/status", response_model=SubmissionStatus)
 def report_status(db: Session = Depends(get_db)):

@@ -94,6 +94,36 @@ class WeeklyReport(Base):
     member: Mapped["Member"] = relationship(back_populates="reports")
     template: Mapped["ReportTemplate | None"] = relationship(back_populates="reports")
     week_period: Mapped["WeekPeriod"] = relationship(back_populates="reports")
+    personal_report: Mapped["WeeklyPersonalReport | None"] = relationship(
+        back_populates="weekly_report", uselist=False, cascade="all, delete-orphan"
+    )
+
+
+class WeeklyPersonalReport(Base):
+    """完整个人周报"""
+    __tablename__ = "weekly_personal_reports"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    weekly_report_id: Mapped[int] = mapped_column(
+        ForeignKey("weekly_reports.id", ondelete="CASCADE"), nullable=False
+    )
+    member_id: Mapped[int] = mapped_column(ForeignKey("members.id"), nullable=False)
+    template_id: Mapped[int | None] = mapped_column(
+        ForeignKey("report_templates.id"), nullable=True
+    )
+    week_period_id: Mapped[int] = mapped_column(
+        ForeignKey("week_periods.id"), nullable=False
+    )
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    submitted_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    weekly_report: Mapped["WeeklyReport"] = relationship(back_populates="personal_report")
+    member: Mapped["Member"] = relationship()
+    template: Mapped["ReportTemplate | None"] = relationship()
+    week_period: Mapped["WeekPeriod"] = relationship()
 
 
 class WeeklySummary(Base):
@@ -109,3 +139,4 @@ class WeeklySummary(Base):
     generated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     week_period: Mapped["WeekPeriod"] = relationship(back_populates="summaries")
+
