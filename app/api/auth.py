@@ -125,17 +125,38 @@ async def auth_callback(request: Request, db: Session = Depends(get_db)):
     return response
 
 @router.post("/logout")
-async def logout():
+async def logout(request: Request):
     """退出登录接口。
 
-    清除浏览器中的 sso_token Cookie，并重定向至登录页面。
+    清除本地的 sso_token Cookie。如果开启了 SSO 且支持 OIDC 登出端点，
+    则重定向到 SSO 提供商的登出页面以清除 SSO 会话；否则直接重定向到本地登录页面。
+
+    Args:
+        request: FastAPI 请求对象。
 
     Returns:
-        清除 Cookie 后的重定向响应。
+        重定向响应。
     """
-    response = {"message": "已退出登录"}
-    res = RedirectResponse(url="/login")
+    res = RedirectResponse(url="/login", status_code=303)
     res.delete_cookie("sso_token")
+
+    if settings.enable_sso:
+        try:
+            metadata = await oauth.sso.load_server_metadata()
+            end_session_endpoint = metadata.get("end_session_endpoint")
+            if end_session_endpoint:
+                from urllib.parse import quote
+                post_logout_redirect_uri = f"{request.base_url}login"
+                logout_url = (
+                    f"{end_session_endpoint}"
+                    f"?post_logout_redirect_uri={quote(post_logout_redirect_uri)}"
+                    f"&client_id={settings.sso_client_id}"
+                )
+                res = RedirectResponse(url=logout_url, status_code=303)
+                res.delete_cookie("sso_token")
+        except Exception:
+            pass
+
     return res
 
 @router.get("/me")
