@@ -1,0 +1,26 @@
+{
+  "heading_1": {
+    "ch_font": "方正小标宋简体",
+    "ch_size": 22,
+    "en_font": "Times New Roman",
+    "en_size": 10
+  },
+  "heading_2": {
+    "ch_font": "黑体",
+    "ch_size": 16,
+    "en_font": "Times New Roman",
+    "en_size": 10
+  },
+  "heading_3": {
+    "ch_font": "楷体_GB2312",
+    "ch_size": 16,
+    "en_font": "Times New Roman",
+    "en_size": 10
+  },
+  "body": {
+    "ch_font": "仿宋_GB2312",
+    "ch_size": 16,
+    "en_font": "Times New Roman",
+    "en_size": 10
+  }
+}

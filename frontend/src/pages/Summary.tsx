@@ -3,7 +3,7 @@ import api, { showToast } from '../api';
 import { format, parseISO } from 'date-fns';
 import { MdPreview } from 'md-editor-rt';
 import 'md-editor-rt/lib/preview.css';
-import { Settings, Bot, Download, FileText, Maximize2, Minimize2 } from 'lucide-react';
+import { Settings, Bot, Download, FileText, Maximize2, Minimize2, Send } from 'lucide-react';
 
 export default function Summary() {
   const [data, setData] = useState<any>(null);
@@ -18,6 +18,11 @@ export default function Summary() {
   const [viewSummary, setViewSummary] = useState<any>(null);
   const [generating, setGenerating] = useState(false);
   const [expandedPeriods, setExpandedPeriods] = useState<Record<number, boolean>>({});
+
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [sendTargetId, setSendTargetId] = useState<number | null>(null);
+  const [mailForm, setMailForm] = useState({ to: '', subject: '', body: '' });
+  const [sending, setSending] = useState(false);
 
   const toggleExpand = (periodId: number) => {
     setExpandedPeriods(prev => ({ ...prev, [periodId]: !prev[periodId] }));
@@ -110,6 +115,50 @@ export default function Summary() {
     } catch (e) {}
   };
 
+  const openSendModal = (summary: any) => {
+    const start_str = format(parseISO(summary.week_period.week_start), 'yyyyMMdd');
+    const end_str = format(parseISO(summary.week_period.week_end), 'yyyyMMdd');
+    const defaultSubject = `工作周报-数据库团队_${start_str}-${end_str}`;
+    const defaultBody = "大家请查看附件中的数据库团队工作周报，谢谢。";
+    const savedRecipients = localStorage.getItem('last_mail_recipients') || '';
+
+    setMailForm({
+      to: savedRecipients,
+      subject: defaultSubject,
+      body: defaultBody
+    });
+    setSendTargetId(summary.id);
+    setShowSendModal(true);
+  };
+
+  const handleSendMail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mailForm.to.trim()) {
+      showToast('请输入收件人邮箱', 'error');
+      return;
+    }
+    const emailList = mailForm.to.split(/[,;\n]/).map(email => email.trim()).filter(Boolean);
+    if (emailList.length === 0) {
+      showToast('请输入有效的收件人邮箱', 'error');
+      return;
+    }
+
+    try {
+      setSending(true);
+      await api.post(`/summaries/${sendTargetId}/send`, {
+        to: emailList,
+        subject: mailForm.subject,
+        body: mailForm.body
+      });
+      showToast('邮件发送成功');
+      localStorage.setItem('last_mail_recipients', mailForm.to);
+      setShowSendModal(false);
+    } catch (e) {
+    } finally {
+      setSending(false);
+    }
+  };
+
   if (loading || !data) return <div className="inline-flex items-center gap-1 mt-5"><div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-load-pulse"></div><div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-load-pulse delay-150"></div><div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-load-pulse delay-300"></div></div>;
 
   const btnPrimary = "inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500 text-white border-none rounded-lg text-sm font-semibold cursor-pointer transition-all hover:bg-indigo-600 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)] disabled:opacity-70 disabled:cursor-not-allowed";
@@ -136,6 +185,11 @@ export default function Summary() {
             <button className={btnPrimary} onClick={generateSummary} disabled={generating}>
               {generating ? '正在生成...' : <><Bot size={16} /> 生成汇总</>}
             </button>
+            {data.current_summary && (
+              <button className={btnSecondary} onClick={() => openSendModal(data.current_summary)}>
+                <Send size={16} /> 发送周报
+              </button>
+            )}
           </div>
         </div>
         <p className="text-slate-500 text-sm leading-relaxed">
@@ -192,6 +246,7 @@ export default function Summary() {
                            {items.length === 1 && (
                              <a href={`/api/summaries/${latest.id}/download`} onClick={(e) => e.stopPropagation()} className={btnSmPrimary}><Download size={14} /> 下载</a>
                            )}
+                           <button className={btnSmSecondary} onClick={(e) => { e.stopPropagation(); openSendModal(latest); }}><Send size={14} /> 发送</button>
                         </td>
                       </tr>
                       {isExpanded && items.map((s: any, idx: number) => (
@@ -205,6 +260,7 @@ export default function Summary() {
                           <td className="px-4 py-2.5 text-xs border-b border-slate-100 align-middle flex items-center gap-1.5">
                             <button className={btnSmSecondary} onClick={() => setViewSummary(s)}><FileText size={12} /> 查看</button>
                             <a href={`/api/summaries/${s.id}/download`} className={btnSmPrimary}><Download size={12} /> 下载</a>
+                            <button className={btnSmSecondary} onClick={() => openSendModal(s)}><Send size={12} /> 发送</button>
                             {s.week_period_id === data.current_period_id ? (
                               <button className={btnSmDanger} onClick={() => deleteSummary(s.id)}>删除</button>
                             ) : (
@@ -309,6 +365,58 @@ export default function Summary() {
                 </div>
               </div>
               <button type="submit" className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-500 text-white border-none rounded-lg text-[15px] font-semibold cursor-pointer transition-all hover:bg-indigo-600 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)] shrink-0">保存配置</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showSendModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1000] flex justify-center items-center animate-modal-in" onClick={() => setShowSendModal(false)}>
+          <div className="bg-white border border-slate-200 rounded-2xl p-7 w-[90%] max-w-[600px] max-h-[85vh] flex flex-col shadow-[0_20px_60px_rgba(0,0,0,0.5)]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6 shrink-0">
+              <h3 className="text-lg font-bold">发送周报邮件</h3>
+              <button className="bg-transparent border-none text-slate-500 text-xl cursor-pointer p-1 transition-colors hover:text-slate-900" onClick={() => setShowSendModal(false)}>✕</button>
+            </div>
+            
+            <form onSubmit={handleSendMail} className="flex flex-col gap-4 flex-1 overflow-y-auto pr-1">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5">收件人 (多个邮箱用逗号、分号或换行分隔)</label>
+                <textarea 
+                  value={mailForm.to} 
+                  onChange={(e) => setMailForm({...mailForm, to: e.target.value})} 
+                  placeholder="例如: leader@company.com, team@company.com"
+                  className={`${inputClass} min-h-[80px] resize-y`}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5">邮件主题</label>
+                <input 
+                  type="text" 
+                  value={mailForm.subject} 
+                  onChange={(e) => setMailForm({...mailForm, subject: e.target.value})} 
+                  className={inputClass}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5">邮件正文 (Word格式周报将作为附件自动发送)</label>
+                <textarea 
+                  value={mailForm.body} 
+                  onChange={(e) => setMailForm({...mailForm, body: e.target.value})} 
+                  className={`${inputClass} min-h-[120px] resize-y`}
+                  required
+                />
+              </div>
+
+              <div className="flex gap-3 justify-end mt-4 shrink-0">
+                <button type="button" className={btnSecondary} onClick={() => setShowSendModal(false)}>取消</button>
+                <button type="submit" className={btnPrimary} disabled={sending}>
+                  {sending ? '正在发送...' : <><Send size={16} /> 确认发送</>}
+                </button>
+              </div>
             </form>
           </div>
         </div>

@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     sso_userinfo_url: str = ""
     sso_secret_key: str = "change_me_to_a_random_string_in_production"
 
+    # 邮件服务配置
+    mail_url: str = "http://localhost:8000/api/mock-mail"
+    mail_token: str = "mock-token-123456"
+
     @property
     def database_url(self) -> str:
         """获取 SQLAlchemy 格式的数据库连接 URL。
@@ -45,7 +49,11 @@ class Settings(BaseSettings):
             f"?charset=utf8mb4"
         )
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore"
+    }
 
 
 @lru_cache

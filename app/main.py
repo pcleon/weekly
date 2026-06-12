@@ -70,6 +70,54 @@ def api_extend_period(params: PeriodExtendParams, db: Session = Depends(get_db))
     }
 
 
+@app.post("/api/mock-mail")
+async def mock_mail(request: Request):
+    """模拟邮件发送服务的 HTTP 接口。
+
+    解析多部分表单数据中的邮件主题、正文、收件人和附件信息并打印日志。
+
+    Args:
+        request: FastAPI 请求对象。
+
+    Returns:
+        包含成功状态及邮件主题的字典。
+    """
+    form_data = await request.form()
+    subject = form_data.get("subject")
+    body = form_data.get("body")
+    to_list = form_data.getlist("to")
+    token = request.headers.get("token")
+
+    # 处理附件名
+    attachments = []
+    from loguru import logger
+    logger.info(f"[Mock Mail] Form keys: {list(form_data.keys())}")
+    
+    # Iterate through all items in form_data
+    for key, value in form_data.items():
+        logger.info(f"[Mock Mail] Item key: {key}, Type: {type(value)}, Value: {value}")
+        
+    upload_files = form_data.getlist("attach")
+    for uf in upload_files:
+        if hasattr(uf, "filename"):
+            attachments.append(uf.filename)
+        elif hasattr(uf, "name"):
+            attachments.append(uf.name)
+        else:
+            attachments.append(str(uf))
+
+    logger.info(
+        f"[Mock Mail] 收到邮件发送请求: 主题='{subject}', "
+        f"收件人={to_list}, Token='{token}', 附件数={len(attachments)} {attachments}"
+    )
+    return {
+        "status": "success",
+        "message": "Mail sent successfully via mock service",
+        "subject": subject,
+        "to": to_list
+    }
+
+
 # ── 页面路由 (React SPA Catch-all) ──────────────────────────────────
 from fastapi.responses import HTMLResponse, FileResponse
 
