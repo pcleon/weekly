@@ -12,6 +12,16 @@ router = APIRouter(prefix="/api/pages", tags=["页面聚合数据"], dependencie
 
 @router.get("/dashboard")
 def get_dashboard_data(db: Session = Depends(get_db)):
+    """获取仪表盘（Dashboard）页面所需的数据。
+
+    包括当前激活的周报周期、成员周报提交状态统计（已交/未交名单），以及格式化后的截止日期文本。
+
+    Args:
+        db: 数据库 Session 对象。
+
+    Returns:
+        包含 "period", "status", "deadline_str" 聚合数据的字典。
+    """
     period = get_or_create_current_period(db)
     status = get_submission_status(db, period)
     weekdays = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
@@ -24,6 +34,16 @@ def get_dashboard_data(db: Session = Depends(get_db)):
 
 @router.get("/report-form")
 def get_report_form_data(db: Session = Depends(get_db)):
+    """获取填写周报（Report Form）页面所需的初始化数据。
+
+    包括当前的周期对象、系统活跃成员列表、系统预设模板列表以及设定的默认模板对象。
+
+    Args:
+        db: 数据库 Session 对象。
+
+    Returns:
+        包含 "period", "members", "templates", "default_template" 聚合数据的字典。
+    """
     period = get_or_create_current_period(db)
     active_members = db.query(Member).filter(Member.is_active == True).all()
     all_templates = db.query(ReportTemplate).all()
@@ -41,6 +61,19 @@ def get_reports_page_data(
     member_id: int | None = None,
     db: Session = Depends(get_db)
 ):
+    """获取周报归档列表页面（Reports Page）所需的聚合数据。
+
+    支持对周报结果进行周期 ID 和成员 ID 过滤，并一并获取历史所有周期列表和活跃成员列表，
+    用以前端筛选下拉菜单的数据绑定。
+
+    Args:
+        period_id: 选中的过滤周期 ID。
+        member_id: 选中的过滤成员 ID。
+        db: 数据库 Session 对象。
+
+    Returns:
+        包含 "reports", "periods", "members", "selected_period_id", "selected_member_id", "current_period_id" 的字典。
+    """
     query = db.query(WeeklyReport).options(
         joinedload(WeeklyReport.member),
         joinedload(WeeklyReport.week_period),
@@ -65,6 +98,17 @@ def get_reports_page_data(
 
 @router.get("/summary")
 def get_summary_page_data(db: Session = Depends(get_db)):
+    """获取 AI 汇总管理页面（Summary Page）所需的聚合数据。
+
+    返回历史所有的 AI 汇总记录、当前最新周期的 ID、当前周期最近一次生成的汇总详情，
+    以及当前最新一次提交了周报的成员提交信息。
+
+    Args:
+        db: 数据库 Session 对象。
+
+    Returns:
+        包含 "summaries", "current_period_id", "current_summary", "last_report" 聚合数据的字典。
+    """
     all_summaries = (
         db.query(WeeklySummary)
         .options(joinedload(WeeklySummary.week_period))

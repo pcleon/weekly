@@ -17,7 +17,16 @@ router = APIRouter(prefix="/api/templates", tags=["模板管理"], dependencies=
 
 
 def extract_docx_text(file_path: str) -> str:
-    """从 docx 文件提取纯文本内容"""
+    """从本地 Word (.docx) 文件中提取其中的所有纯文本内容。
+
+    按段落读取文本，并用换行符连接。
+
+    Args:
+        file_path: 本地 .docx 文件的绝对路径。
+
+    Returns:
+        解析提取出来的纯文本字符串。
+    """
     from docx import Document
     doc = Document(file_path)
     lines = []
@@ -28,12 +37,34 @@ def extract_docx_text(file_path: str) -> str:
 
 @router.get("", response_model=list[TemplateOut])
 def list_templates(db: Session = Depends(get_db)):
+    """获取所有已录入的周报模板列表。
+
+    以模板 ID 升序排列。
+
+    Args:
+        db: 数据库 Session 对象。
+
+    Returns:
+        TemplateOut 模式对应的模板列表。
+    """
     templates = db.query(ReportTemplate).order_by(ReportTemplate.id).all()
     return [TemplateOut.from_orm_with_file(t) for t in templates]
 
 
 @router.get("/{template_id}", response_model=TemplateOut)
 def get_template(template_id: int, db: Session = Depends(get_db)):
+    """获取指定 ID 的周报模板详情。
+
+    Args:
+        template_id: 目标模板的 ID。
+        db: 数据库 Session 对象。
+
+    Returns:
+        TemplateOut 对应的数据详情。
+
+    Raises:
+        HTTPException: 当模板不存在时抛出 404。
+    """
     tpl = db.get(ReportTemplate, template_id)
     if not tpl:
         raise HTTPException(404, "模板不存在")
@@ -48,6 +79,24 @@ async def create_template(
     file: UploadFile | None = File(None),
     db: Session = Depends(get_db),
 ):
+    """新建一个工作周报模板。
+
+    支持直接输入富文本内容，也支持上传 .docx 模板附件文件。如果上传了附件，
+    系统会自动对文件大小 (<=10MB)、Magic Number (PK..) 进行安全校验防范伪装，并提取文本填充内容。
+
+    Args:
+        name: 模板名称。
+        content: 模板主体文本内容，若上传了文件且内容为空，则会自动解析并提取文件内容。
+        is_default: 是否设为默认模板。若设为默认，系统会自动把之前的默认模板置为非默认。
+        file: 上传的模板文件附件 (仅限 .docx 格式)。
+        db: 数据库 Session 对象。
+
+    Returns:
+        新创建并保存的 ReportTemplate 模板实体。
+
+    Raises:
+        HTTPException: 当文件格式非法、文件过大、内容为空或文件损坏时抛出。
+    """
     file_path = None
 
     # 处理 docx 上传
@@ -96,6 +145,19 @@ async def create_template(
 
 @router.put("/{template_id}", response_model=TemplateOut)
 def update_template(template_id: int, data: TemplateUpdate, db: Session = Depends(get_db)):
+    """修改更新指定 ID 的周报模板信息。
+
+    Args:
+        template_id: 模板的 ID。
+        data: 包含更新内容的 TemplateUpdate 数据对象。
+        db: 数据库 Session 对象。
+
+    Returns:
+        修改后的 ReportTemplate 模板实体。
+
+    Raises:
+        HTTPException: 当模板不存在时抛出 404。
+    """
     tpl = db.get(ReportTemplate, template_id)
     if not tpl:
         raise HTTPException(404, "模板不存在")
@@ -113,6 +175,20 @@ def update_template(template_id: int, data: TemplateUpdate, db: Session = Depend
 
 @router.delete("/{template_id}")
 def delete_template(template_id: int, db: Session = Depends(get_db)):
+    """删除指定的周报模板。
+
+    物理删除模板记录，并会自动清理删除存储在本地磁盘上的关联 docx 文件。
+
+    Args:
+        template_id: 模板的 ID。
+        db: 数据库 Session 对象。
+
+    Returns:
+        包含成功提示的字典。
+
+    Raises:
+        HTTPException: 当模板不存在时抛出 404。
+    """
     tpl = db.get(ReportTemplate, template_id)
     if not tpl:
         raise HTTPException(404, "模板不存在")
@@ -126,6 +202,20 @@ def delete_template(template_id: int, db: Session = Depends(get_db)):
 
 @router.put("/{template_id}/default", response_model=TemplateOut)
 def set_default(template_id: int, db: Session = Depends(get_db)):
+    """将指定 ID 的周报模板设为系统默认模板。
+
+    被设为默认后，系统会自动把之前的默认模板重置。
+
+    Args:
+        template_id: 模板的 ID。
+        db: 数据库 Session 对象。
+
+    Returns:
+        设置为默认后的 ReportTemplate 模板实体。
+
+    Raises:
+        HTTPException: 当模板不存在时抛出 404。
+    """
     tpl = db.get(ReportTemplate, template_id)
     if not tpl:
         raise HTTPException(404, "模板不存在")
@@ -140,7 +230,18 @@ def set_default(template_id: int, db: Session = Depends(get_db)):
 
 @router.get("/{template_id}/download")
 def download_template(template_id: int, db: Session = Depends(get_db)):
-    """下载模板的 docx 原始文件"""
+    """下载指定模板关联的 .docx 原始附件文件。
+
+    Args:
+        template_id: 模板的 ID。
+        db: 数据库 Session 对象。
+
+    Returns:
+        文件流下载响应 (FileResponse)。
+
+    Raises:
+        HTTPException: 当模板不存在、未关联附件文件或本地文件损坏丢失时抛出。
+    """
     tpl = db.get(ReportTemplate, template_id)
     if not tpl or not tpl.file_path:
         raise HTTPException(404, "该模板没有关联的 docx 文件")

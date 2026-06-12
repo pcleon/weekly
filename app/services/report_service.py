@@ -8,7 +8,17 @@ from app.models import WeekPeriod, WeeklyReport, Member
 
 
 def get_or_create_current_period(db: Session) -> WeekPeriod:
-    """获取或创建当前周期"""
+    """获取或自动创建当前的周报周期。
+
+    首先根据当前本地日期寻找是否已存在包含今天的周报周期（可包容跨周顺延）；
+    若不存在，则计算本周对应的周期起止时间，并在数据库中创建并保存该周期的记录。
+
+    Args:
+        db: 数据库 Session 会话对象。
+
+    Returns:
+        当前的 WeekPeriod 周期实体对象。
+    """
     tz = ZoneInfo(get_settings().timezone)
     today = datetime.now(tz).date()
     
@@ -36,7 +46,17 @@ def get_or_create_current_period(db: Session) -> WeekPeriod:
 
 
 def get_submission_status(db: Session, period: WeekPeriod) -> dict:
-    """获取指定周期的提交状态"""
+    """统计获取指定周报周期中所有活跃成员的提交状态。
+
+    统计在当前周期内已提交和未提交周报的活跃成员名单、总人数及已提交人数。
+
+    Args:
+        db: 数据库 Session 会话对象。
+        period: 需要统计的 WeekPeriod 目标周期对象。
+
+    Returns:
+        包含 "week_period", "submitted", "not_submitted", "total", "submitted_count" 的字典。
+    """
     all_members = db.query(Member).filter(Member.is_active == True).all()
     
     reports = db.query(WeeklyReport).filter(

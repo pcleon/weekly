@@ -8,7 +8,10 @@ from app.database import Base
 
 
 class Member(Base):
-    """团队成员"""
+    """团队成员实体模型。
+
+    维护团队内成员的信息，包括所属部门和启用激活状态。
+    """
     __tablename__ = "members"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -17,11 +20,15 @@ class Member(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
+    # 关联关系
     reports: Mapped[list["WeeklyReport"]] = relationship(back_populates="member")
 
 
 class ReportTemplate(Base):
-    """周报模板"""
+    """周报模板实体模型。
+
+    定义预设的工作周报模板内容，可供成员提交周报时选择参考。
+    """
     __tablename__ = "report_templates"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -34,11 +41,15 @@ class ReportTemplate(Base):
         DateTime, server_default=func.now(), onupdate=func.now()
     )
 
+    # 关联关系
     reports: Mapped[list["WeeklyReport"]] = relationship(back_populates="template")
 
 
 class WeekPeriod(Base):
-    """周期（以周为单位，周五15:00截止）"""
+    """周期实体模型。
+
+    定义以周为单位的周报汇总统计周期，记录提交的截止时间及周期的开放状态。
+    """
     __tablename__ = "week_periods"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -49,12 +60,22 @@ class WeekPeriod(Base):
         String(20), default="open", comment="open / closed"
     )
 
+    # 关联关系
     reports: Mapped[list["WeeklyReport"]] = relationship(back_populates="week_period")
     summaries: Mapped[list["WeeklySummary"]] = relationship(back_populates="week_period")
 
     @staticmethod
     def calc_for_date(d: date) -> dict:
-        """根据给定日期计算所属周期的起止和截止时间"""
+        """根据给定的目标日期计算其所属周期的起止时间与截止提交时间。
+
+        周一为周期起始。截止提交时间（默认周五 15:00）从 deadline.json 中读取配置。
+
+        Args:
+            d: 目标日期（Date 类型）。
+
+        Returns:
+            包含 "week_start", "week_end", "deadline" 三个键的字典。
+        """
         from datetime import timedelta, datetime
         from app.config import get_deadline_config
 
@@ -74,7 +95,10 @@ class WeekPeriod(Base):
 
 
 class WeeklyReport(Base):
-    """个人周报"""
+    """个人工作周报实体模型。
+
+    记录团队成员提交的单周团队周报内容（公开汇总）。
+    """
     __tablename__ = "weekly_reports"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -91,6 +115,7 @@ class WeeklyReport(Base):
         DateTime, server_default=func.now(), onupdate=func.now()
     )
 
+    # 关联关系
     member: Mapped["Member"] = relationship(back_populates="reports")
     template: Mapped["ReportTemplate | None"] = relationship(back_populates="reports")
     week_period: Mapped["WeekPeriod"] = relationship(back_populates="reports")
@@ -100,7 +125,7 @@ class WeeklyReport(Base):
 
 
 class WeeklyPersonalReport(Base):
-    """完整个人周报"""
+    """完整个人周报实体模型（包含发送给领导的私密汇报内容）。"""
     __tablename__ = "weekly_personal_reports"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -120,6 +145,7 @@ class WeeklyPersonalReport(Base):
         DateTime, server_default=func.now(), onupdate=func.now()
     )
 
+    # 关联关系
     weekly_report: Mapped["WeeklyReport"] = relationship(back_populates="personal_report")
     member: Mapped["Member"] = relationship()
     template: Mapped["ReportTemplate | None"] = relationship()
@@ -127,7 +153,10 @@ class WeeklyPersonalReport(Base):
 
 
 class WeeklySummary(Base):
-    """AI 汇总结果"""
+    """AI 汇总结果实体模型。
+
+    保存每一周期通过大模型自动生成的团队工作周报合并总结内容。
+    """
     __tablename__ = "weekly_summaries"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -138,5 +167,6 @@ class WeeklySummary(Base):
     raw_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
     generated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
+    # 关联关系
     week_period: Mapped["WeekPeriod"] = relationship(back_populates="summaries")
 

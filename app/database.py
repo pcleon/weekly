@@ -15,7 +15,11 @@ class Base(DeclarativeBase):
 
 
 def get_db():
-    """FastAPI 依赖注入：提供数据库 Session"""
+    """获取数据库连接会话生成器（用于 FastAPI 的依赖注入）。
+
+    Yields:
+        db: SQLAlchemy 数据库 Session 对象，在 API 请求处理完毕后会自动释放关闭。
+    """
     db = SessionLocal()
     try:
         yield db

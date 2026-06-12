@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, Fragment } from 'react';
 import api, { showToast } from '../api';
 import { format, parseISO } from 'date-fns';
 import { marked } from 'marked';
@@ -13,6 +13,24 @@ export default function Summary() {
   
   const [viewSummary, setViewSummary] = useState<any>(null);
   const [generating, setGenerating] = useState(false);
+  const [expandedPeriods, setExpandedPeriods] = useState<Record<number, boolean>>({});
+
+  const toggleExpand = (periodId: number) => {
+    setExpandedPeriods(prev => ({ ...prev, [periodId]: !prev[periodId] }));
+  };
+
+  const groupedSummaries = useMemo(() => {
+    if (!data?.summaries) return [];
+    const groups: Record<number, { period: any, items: any[] }> = {};
+    data.summaries.forEach((s: any) => {
+      const pid = s.week_period_id;
+      if (!groups[pid]) {
+        groups[pid] = { period: s.week_period, items: [] };
+      }
+      groups[pid].items.push(s);
+    });
+    return Object.values(groups).sort((a, b) => b.period.week_start.localeCompare(a.period.week_start));
+  }, [data?.summaries]);
 
   useEffect(() => {
     fetchData();
@@ -129,21 +147,53 @@ export default function Summary() {
                 </tr>
               </thead>
               <tbody>
-                {data.summaries.map((s: any) => (
-                  <tr key={s.id} className="transition-colors hover:bg-slate-50">
-                    <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">{s.week_period.week_start.split('T')[0]} ~ {s.week_period.week_end.split('T')[0]}</td>
-                    <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">{format(parseISO(s.generated_at), 'yyyy-MM-dd HH:mm')}</td>
-                    <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle flex items-center gap-1.5">
-                      <button className={btnSmSecondary} onClick={() => setViewSummary(s)}><FileText size={14} /> 查看</button>
-                      <a href={`/api/summaries/${s.id}/download`} className={btnSmPrimary}><Download size={14} /> 下载</a>
-                      {s.week_period_id === data.current_period_id ? (
-                        <button className={btnSmDanger} onClick={() => deleteSummary(s.id)}>删除</button>
-                      ) : (
-                        <button className={btnSmDanger} disabled title="历史周期不可修改">删除</button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {groupedSummaries.map(({ period, items }) => {
+                  const isExpanded = expandedPeriods[period.id];
+                  const latest = items[0];
+                  return (
+                    <Fragment key={period.id}>
+                      <tr className="transition-colors hover:bg-slate-50 cursor-pointer" onClick={() => toggleExpand(period.id)}>
+                        <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle font-medium text-slate-700">
+                          <div className="flex items-center gap-2">
+                            <span className="text-slate-400 text-xs w-4 text-center">{isExpanded ? '▼' : '▶'}</span>
+                            {period.week_start.split('T')[0]} ~ {period.week_end.split('T')[0]}
+                            {items.length > 1 && (
+                              <span className="ml-2 px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[10px] font-semibold">{items.length} 个版本</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle text-slate-500">
+                          最新: {format(parseISO(latest.generated_at), 'yyyy-MM-dd HH:mm')}
+                        </td>
+                        <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle flex items-center gap-1.5">
+                           <button className={btnSmSecondary} onClick={(e) => { e.stopPropagation(); setViewSummary(latest); }}><FileText size={14} /> 查看最新</button>
+                           {items.length === 1 && (
+                             <a href={`/api/summaries/${latest.id}/download`} onClick={(e) => e.stopPropagation()} className={btnSmPrimary}><Download size={14} /> 下载</a>
+                           )}
+                        </td>
+                      </tr>
+                      {isExpanded && items.map((s: any, idx: number) => (
+                        <tr key={s.id} className="bg-slate-50/50">
+                          <td className="px-4 py-2.5 text-xs border-b border-slate-100 align-middle pl-11 text-slate-500">
+                            版本 {items.length - idx}
+                          </td>
+                          <td className="px-4 py-2.5 text-xs border-b border-slate-100 align-middle text-slate-500">
+                            {format(parseISO(s.generated_at), 'yyyy-MM-dd HH:mm:ss')}
+                          </td>
+                          <td className="px-4 py-2.5 text-xs border-b border-slate-100 align-middle flex items-center gap-1.5">
+                            <button className={btnSmSecondary} onClick={() => setViewSummary(s)}><FileText size={12} /> 查看</button>
+                            <a href={`/api/summaries/${s.id}/download`} className={btnSmPrimary}><Download size={12} /> 下载</a>
+                            {s.week_period_id === data.current_period_id ? (
+                              <button className={btnSmDanger} onClick={() => deleteSummary(s.id)}>删除</button>
+                            ) : (
+                              <button className={btnSmDanger} disabled title="历史周期不可修改">删除</button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
