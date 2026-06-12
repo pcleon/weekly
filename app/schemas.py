@@ -35,6 +35,7 @@ class TemplateCreate(BaseModel):
     name: str
     content: str = ""
     is_default: bool = False
+    system_prompt: str | None = None
 
 
 class TemplateUpdate(BaseModel):
@@ -42,6 +43,7 @@ class TemplateUpdate(BaseModel):
     name: str | None = None
     content: str | None = None
     is_default: bool | None = None
+    system_prompt: str | None = None
 
 
 class TemplateOut(BaseModel):
@@ -52,6 +54,7 @@ class TemplateOut(BaseModel):
     file_path: str | None = None
     has_file: bool = False
     is_default: bool
+    system_prompt: str | None = None
     created_at: datetime
     updated_at: datetime
 

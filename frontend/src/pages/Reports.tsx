@@ -2,10 +2,9 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api, { showToast } from '../api';
 import { format, parseISO } from 'date-fns';
-import { marked } from 'marked';
-import SimpleMDE from 'react-simplemde-editor';
-import 'easymde/dist/easymde.min.css';
-import 'font-awesome/css/font-awesome.min.css';
+import { MdEditor, MdPreview } from 'md-editor-rt';
+import 'md-editor-rt/lib/style.css';
+import 'md-editor-rt/lib/preview.css';
 import { FolderOpen } from 'lucide-react';
 
 export default function Reports() {
@@ -174,26 +173,30 @@ export default function Reports() {
       </div>
 
       {viewReport && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1000] flex justify-center items-center animate-modal-in">
-          <div className="bg-white border border-slate-200 rounded-2xl p-7 w-[95%] max-w-[1200px] max-h-[85vh] overflow-y-auto shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
-            <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-3">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1000] flex justify-center items-center animate-modal-in" onClick={() => setViewReport(null)}>
+          <div className="bg-white border border-slate-200 rounded-2xl p-7 w-[95%] max-w-[1200px] max-h-[85vh] flex flex-col shadow-[0_20px_60px_rgba(0,0,0,0.5)]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-3 shrink-0">
               <h3 className="text-lg font-bold text-slate-800">{viewReport.member?.name} 的双轨周报</h3>
               <button className="bg-transparent border-none text-slate-500 text-xl cursor-pointer p-1 transition-colors hover:text-slate-900" onClick={() => setViewReport(null)}>✕</button>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-y-auto flex-1 pr-1">
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-[14px] font-bold text-slate-700">1. 个人周报完整内容</h4>
                   <span className="text-[11px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded font-medium">完整记录</span>
                 </div>
-                <div className="bg-slate-50/50 border border-slate-200 rounded-xl p-5 leading-relaxed text-sm min-h-[300px] prose prose-slate max-w-none" dangerouslySetInnerHTML={{ __html: marked.parse(viewReport.personal_content || '*无个人周报内容*') as string }}></div>
+                <div className="border border-slate-200 rounded-xl min-h-[300px] overflow-hidden">
+                  <MdPreview modelValue={viewReport.personal_content || '*无个人周报内容*'} previewTheme="github" />
+                </div>
               </div>
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-[14px] font-bold text-slate-700">2. 汇报与汇总内容</h4>
                   <span className="text-[11px] px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded font-medium">用于 AI 自动汇总</span>
                 </div>
-                <div className="bg-slate-50/50 border border-slate-200 rounded-xl p-5 leading-relaxed text-sm min-h-[300px] prose prose-slate max-w-none" dangerouslySetInnerHTML={{ __html: marked.parse(viewReport.content || '*无汇总用周报内容*') as string }}></div>
+                <div className="border border-slate-200 rounded-xl min-h-[300px] overflow-hidden">
+                  <MdPreview modelValue={viewReport.content || '*无汇总用周报内容*'} previewTheme="github" />
+                </div>
               </div>
             </div>
           </div>
@@ -201,24 +204,40 @@ export default function Reports() {
       )}
 
       {editReport && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1000] flex justify-center items-center animate-modal-in">
-          <div className="bg-white border border-slate-200 rounded-2xl p-7 w-[95%] max-w-[1200px] max-h-[85vh] overflow-y-auto shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
-            <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-3">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1000] flex justify-center items-center animate-modal-in" onClick={() => setEditReport(null)}>
+          <div className="bg-white border border-slate-200 rounded-2xl p-7 w-[95%] max-w-[1200px] max-h-[85vh] flex flex-col shadow-[0_20px_60px_rgba(0,0,0,0.5)]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-3 shrink-0">
               <h3 className="text-lg font-bold">重新提交周报</h3>
               <button className="bg-transparent border-none text-slate-500 text-xl cursor-pointer p-1 transition-colors hover:text-slate-900" onClick={() => setEditReport(null)}>✕</button>
             </div>
-            <form onSubmit={submitEdit}>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                <div className="bg-white">
+            <form onSubmit={submitEdit} className="flex flex-col flex-1 overflow-hidden">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 overflow-y-auto flex-1 pr-1">
+                <div className="bg-white md-editor-custom">
                   <label className="block text-[13px] font-semibold text-slate-500 mb-1.5">1. 完整个人周报内容 *</label>
-                  <SimpleMDE value={editPersonalContent} onChange={setEditPersonalContent} options={{ autoDownloadFontAwesome: false, spellChecker: false, status: false } as any} />
+                  <MdEditor 
+                    modelValue={editPersonalContent} 
+                    onChange={setEditPersonalContent} 
+                    placeholder="请输入完整个人周报内容..." 
+                    preview={false} 
+                    htmlPreview={false} 
+                    toolbarsExclude={['github', 'save', 'htmlPreview', 'catalog']} 
+                    style={{ height: '400px' }} 
+                  />
                 </div>
-                <div className="bg-white">
+                <div className="bg-white md-editor-custom">
                   <label className="block text-[13px] font-semibold text-slate-500 mb-1.5">2. 汇报与汇总内容 *</label>
-                  <SimpleMDE value={editContent} onChange={setEditContent} options={{ autoDownloadFontAwesome: false, spellChecker: false, status: false } as any} />
+                  <MdEditor 
+                    modelValue={editContent} 
+                    onChange={setEditContent} 
+                    placeholder="请输入用于团队汇总的汇报内容..." 
+                    preview={false} 
+                    htmlPreview={false} 
+                    toolbarsExclude={['github', 'save', 'htmlPreview', 'catalog']} 
+                    style={{ height: '400px' }} 
+                  />
                 </div>
               </div>
-              <button type="submit" className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-500 text-white border-none rounded-lg text-[15px] font-semibold cursor-pointer transition-all hover:bg-indigo-600 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)] disabled:opacity-70 disabled:cursor-not-allowed" disabled={submitting}>保存提交</button>
+              <button type="submit" className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-500 text-white border-none rounded-lg text-[15px] font-semibold cursor-pointer transition-all hover:bg-indigo-600 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)] disabled:opacity-70 disabled:cursor-not-allowed shrink-0" disabled={submitting}>保存提交</button>
             </form>
           </div>
         </div>

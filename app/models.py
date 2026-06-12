@@ -36,6 +36,7 @@ class ReportTemplate(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
+    system_prompt: Mapped[str | None] = mapped_column(Text, nullable=True, comment="AI汇总系统设定提示词")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()

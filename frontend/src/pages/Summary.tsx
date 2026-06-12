@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo, Fragment } from 'react';
 import api, { showToast } from '../api';
 import { format, parseISO } from 'date-fns';
-import { marked } from 'marked';
+import { MdPreview } from 'md-editor-rt';
+import 'md-editor-rt/lib/preview.css';
 import { Settings, Bot, Download, FileText } from 'lucide-react';
 
 export default function Summary() {
@@ -10,6 +11,8 @@ export default function Summary() {
   
   const [showConfig, setShowConfig] = useState(false);
   const [promptConfig, setPromptConfig] = useState({ system_prompt: '', user_template: '' });
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   
   const [viewSummary, setViewSummary] = useState<any>(null);
   const [generating, setGenerating] = useState(false);
@@ -54,8 +57,25 @@ export default function Summary() {
         system_prompt: res.system_prompt,
         user_template: res.user_template
       });
+      setSelectedTemplateId('');
+      
+      const tpls: any = await api.get('/templates');
+      setTemplates(tpls);
+      
       setShowConfig(true);
     } catch (e) {}
+  };
+
+  const handleSelectTemplate = (idStr: string) => {
+    setSelectedTemplateId(idStr);
+    if (!idStr) return;
+    const tpl = templates.find(t => t.id.toString() === idStr);
+    if (tpl) {
+      setPromptConfig({
+        system_prompt: tpl.system_prompt || `你是一个专业的团队周报汇总助手。请根据以下团队成员的周报内容，生成一份结构清晰的团队周报汇总。\n\n在汇总“一、本周工作概述”部分时，不要将所有事项列出，要进行提炼与汇总，只选取具有较大影响或重要进展的部分进行概述。\n\n**必须严格按照以下 Markdown 模板格式输出，不要改变或增删任何标题：**`,
+        user_template: tpl.content || ''
+      });
+    }
   };
 
   const saveConfig = async (e: React.FormEvent) => {
@@ -208,38 +228,60 @@ export default function Summary() {
       </div>
 
       {viewSummary && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1000] flex justify-center items-center animate-modal-in">
-          <div className="bg-white border border-slate-200 rounded-2xl p-7 w-[90%] max-w-[800px] max-h-[85vh] overflow-y-auto shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
-            <div className="flex justify-between items-center mb-6">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1000] flex justify-center items-center animate-modal-in" onClick={() => setViewSummary(null)}>
+          <div className="bg-white border border-slate-200 rounded-2xl p-7 w-[90%] max-w-[800px] max-h-[85vh] flex flex-col shadow-[0_20px_60px_rgba(0,0,0,0.5)]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6 shrink-0">
               <h3 className="text-lg font-bold">汇总报告详情</h3>
               <button className="bg-transparent border-none text-slate-500 text-xl cursor-pointer p-1 transition-colors hover:text-slate-900" onClick={() => setViewSummary(null)}>✕</button>
             </div>
-            <div className="bg-white border border-slate-200 rounded-xl p-6 leading-relaxed whitespace-pre-wrap text-sm min-h-[200px] prose prose-slate max-w-none" dangerouslySetInnerHTML={{ __html: marked.parse(viewSummary.summary_content) as string }}></div>
+            <div className="border border-slate-200 rounded-xl min-h-[200px] overflow-y-auto flex-1">
+              <MdPreview modelValue={viewSummary.summary_content} previewTheme="github" />
+            </div>
           </div>
         </div>
       )}
 
       {showConfig && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1000] flex justify-center items-center animate-modal-in">
-          <div className="bg-white border border-slate-200 rounded-2xl p-7 w-[90%] max-w-[800px] max-h-[85vh] overflow-y-auto shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
-            <div className="flex justify-between items-center mb-6">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1000] flex justify-center items-center animate-modal-in" onClick={() => setShowConfig(false)}>
+          <div className="bg-white border border-slate-200 rounded-2xl p-7 w-[95%] max-w-[1400px] max-h-[90vh] flex flex-col shadow-[0_20px_60px_rgba(0,0,0,0.5)]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6 shrink-0">
               <h3 className="text-lg font-bold">配置汇总提示词</h3>
               <button className="bg-transparent border-none text-slate-500 text-xl cursor-pointer p-1 transition-colors hover:text-slate-900" onClick={() => setShowConfig(false)}>✕</button>
             </div>
-            <form onSubmit={saveConfig}>
-              <div className="mb-5">
-                <label className="block text-[13px] font-semibold text-slate-500 mb-1.5">系统设定与指令 (System Prompt)</label>
-                <p className="text-xs text-slate-500 mb-2">告诉大模型它的角色以及必须遵守的规则。</p>
-                <textarea className={`${inputClass} min-h-[120px]`}
-                  value={promptConfig.system_prompt} onChange={e => setPromptConfig({...promptConfig, system_prompt: e.target.value})}></textarea>
+            
+            {/* 模板选择套用区 */}
+            <div className="mb-5 shrink-0 bg-slate-50 p-4 rounded-xl border border-slate-100 flex items-center gap-3">
+              <div className="flex-1">
+                <label className="block text-xs font-bold text-slate-500 mb-1.5">套用周报模板快速填充 (载入后仍可编辑修改)</label>
+                <select 
+                  value={selectedTemplateId} 
+                  onChange={(e) => handleSelectTemplate(e.target.value)} 
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value="">-- 请选择模板进行套用 --</option>
+                  {templates.map(t => (
+                    <option key={t.id} value={t.id.toString()}>{t.name}</option>
+                  ))}
+                </select>
               </div>
-              <div className="mb-5">
-                <label className="block text-[13px] font-semibold text-slate-500 mb-1.5">汇总 Markdown 模板 (User Template)</label>
-                <p className="text-xs text-slate-500 mb-2">在此处编辑最终期望生成的周报框架排版结构。</p>
-                <textarea className={`${inputClass} min-h-[300px]`}
-                  value={promptConfig.user_template} onChange={e => setPromptConfig({...promptConfig, user_template: e.target.value})}></textarea>
+            </div>
+
+            <form onSubmit={saveConfig} className="flex flex-col flex-1 overflow-hidden">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 overflow-y-auto pr-1 mb-5">
+                <div className="flex flex-col mb-5 lg:mb-0">
+                  <label className="block text-[13px] font-semibold text-slate-500 mb-1">系统设定与指令 (System Prompt)</label>
+                  <p className="text-xs text-slate-400 mb-2">告诉大模型它的角色以及必须遵守的规则。</p>
+                  <textarea className={`${inputClass} flex-1 min-h-[350px] lg:min-h-[420px] resize-none`}
+                    value={promptConfig.system_prompt} onChange={e => setPromptConfig({...promptConfig, system_prompt: e.target.value})}></textarea>
+                </div>
+                <div className="flex flex-col mb-5 lg:mb-0">
+                  <label className="block text-[13px] font-semibold text-slate-500 mb-1">汇总 Markdown 模板 (User Template)</label>
+                  <p className="text-xs text-slate-400 mb-2">在此处编辑最终期望生成的周报框架排版结构。</p>
+                  <textarea className={`${inputClass} flex-1 min-h-[350px] lg:min-h-[420px] resize-none`}
+                    value={promptConfig.user_template} onChange={e => setPromptConfig({...promptConfig, user_template: e.target.value})}></textarea>
+                </div>
               </div>
-              <button type="submit" className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-500 text-white border-none rounded-lg text-[15px] font-semibold cursor-pointer transition-all hover:bg-indigo-600 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)]">保存配置</button>
+              <button type="submit" className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-500 text-white border-none rounded-lg text-[15px] font-semibold cursor-pointer transition-all hover:bg-indigo-600 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)] shrink-0">保存配置</button>
             </form>
           </div>
         </div>

@@ -1,9 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api, { showToast } from '../api';
-import SimpleMDE from 'react-simplemde-editor';
-import 'easymde/dist/easymde.min.css';
-import 'font-awesome/css/font-awesome.min.css';
+import { MdEditor } from 'md-editor-rt';
+import 'md-editor-rt/lib/style.css';
 import { Send } from 'lucide-react';
 
 export default function ReportForm() {
@@ -91,18 +90,7 @@ export default function ReportForm() {
     }
   };
 
-  const mdeOptions = useMemo(() => {
-    return {
-      autoDownloadFontAwesome: false,
-      spellChecker: false,
-      status: false,
-      placeholder: "请输入本周工作内容...",
-      renderingConfig: {
-        singleLineBreaks: false,
-        codeSyntaxHighlighting: true,
-      }
-    };
-  }, []);
+
 
   if (loading || !data) return <div className="inline-flex items-center gap-1 mt-5"><div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-load-pulse"></div><div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-load-pulse delay-150"></div><div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-load-pulse delay-300"></div></div>;
 
@@ -146,9 +134,17 @@ export default function ReportForm() {
               </select>
             </div>
 
-            <div className="bg-white">
+            <div className="bg-white md-editor-custom">
               <label className="block text-[13px] font-semibold text-slate-500 mb-1.5">周报内容 (左侧) *</label>
-              <SimpleMDE value={personalContent} onChange={setPersonalContent} options={mdeOptions as any} />
+              <MdEditor 
+                modelValue={personalContent} 
+                onChange={setPersonalContent} 
+                placeholder="请输入完整个人周报内容..." 
+                preview={false} 
+                htmlPreview={false} 
+                toolbarsExclude={['github', 'save', 'htmlPreview', 'catalog']} 
+                style={{ height: '400px' }} 
+              />
             </div>
           </div>
 
@@ -169,9 +165,17 @@ export default function ReportForm() {
               </select>
             </div>
 
-            <div className="bg-white">
+            <div className="bg-white md-editor-custom">
               <label className="block text-[13px] font-semibold text-slate-500 mb-1.5">汇总用内容 (右侧) *</label>
-              <SimpleMDE value={content} onChange={setContent} options={mdeOptions as any} />
+              <MdEditor 
+                modelValue={content} 
+                onChange={setContent} 
+                placeholder="请输入用于团队汇总的汇报内容..." 
+                preview={false} 
+                htmlPreview={false} 
+                toolbarsExclude={['github', 'save', 'htmlPreview', 'catalog']} 
+                style={{ height: '400px' }} 
+              />
             </div>
           </div>
         </div>

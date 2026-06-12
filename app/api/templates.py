@@ -76,6 +76,7 @@ async def create_template(
     name: str = Form(...),
     content: str = Form(""),
     is_default: bool = Form(False),
+    system_prompt: str | None = Form(None),
     file: UploadFile | None = File(None),
     db: Session = Depends(get_db),
 ):
@@ -88,6 +89,7 @@ async def create_template(
         name: 模板名称。
         content: 模板主体文本内容，若上传了文件且内容为空，则会自动解析并提取文件内容。
         is_default: 是否设为默认模板。若设为默认，系统会自动把之前的默认模板置为非默认。
+        system_prompt: AI汇总系统设定提示词。
         file: 上传的模板文件附件 (仅限 .docx 格式)。
         db: 数据库 Session 对象。
 
@@ -136,6 +138,7 @@ async def create_template(
     tpl = ReportTemplate(
         name=name, content=content,
         file_path=file_path, is_default=is_default,
+        system_prompt=system_prompt,
     )
     db.add(tpl)
     db.commit()
