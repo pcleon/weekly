@@ -77,6 +77,9 @@ class DeadlineConfig(BaseModel):
     day_of_week: int = 4  # 0=周一，4=周五，6=周日
     hour: int = 15
     minute: int = 0
+    auto_send_enabled: bool = False
+    auto_send_email: str = ""
+    auto_send_delay: int = 0  # 单位：分钟
 
 def get_deadline_config() -> DeadlineConfig:
     """从本地 JSON 文件中读取周报截止时间配置。

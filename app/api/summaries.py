@@ -102,6 +102,235 @@ def load_docx_styles():
     return default_styles
 
 
+def build_docx_document(summary: WeeklySummary):
+    """根据 WeeklySummary 的 Markdown 文本内容以及本地样式配置构建 Document。
+
+    Args:
+        summary: WeeklySummary 实例。
+
+    Returns:
+        Document: 生成的 Word 文档对象。
+    """
+    from docx import Document
+    from docx.shared import RGBColor, Pt
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    doc = Document()
+    styles = load_docx_styles()
+
+    def apply_fonts(run, style_cfg):
+        """设置 Word 运行段的中西文字体及字号。"""
+        run.font.color.rgb = RGBColor(0, 0, 0)
+        ch_font = style_cfg["ch_font"]
+        ch_size = style_cfg["ch_size"]
+        en_font = style_cfg.get("en_font", "Times New Roman")
+        
+        # 1. 设置中西文字体
+        rPr = run._element.get_or_add_rPr()
+        rFonts = rPr.find(qn('w:rFonts'))
+        if rFonts is None:
+            rFonts = OxmlElement('w:rFonts')
+            rPr.append(rFonts)
+        rFonts.set(qn('w:ascii'), en_font)
+        rFonts.set(qn('w:hAnsi'), en_font)
+        rFonts.set(qn('w:eastAsia'), ch_font)
+        
+        # 2. 统一设置字号
+        run.font.size = Pt(ch_size)
+
+    for line in summary.summary_content.split('\n'):
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith('# '):
+            p = doc.add_heading(line[2:], level=1)
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            for r in p.runs:
+                apply_fonts(r, styles["heading_1"])
+        elif line.startswith('## '):
+            p = doc.add_heading(line[3:], level=2)
+            for r in p.runs:
+                apply_fonts(r, styles["heading_2"])
+        elif line.startswith('### '):
+            p = doc.add_heading(line[4:], level=3)
+            for r in p.runs:
+                apply_fonts(r, styles["heading_3"])
+        elif line.startswith('- '):
+            p = doc.add_paragraph(style='List Bullet')
+            parts = line[2:].split('**')
+            for i, part in enumerate(parts):
+                run = p.add_run(part)
+                if i % 2 == 1:
+                    run.bold = True
+                apply_fonts(run, styles["body"])
+        else:
+            p = doc.add_paragraph()
+            parts = line.split('**')
+            for i, part in enumerate(parts):
+                run = p.add_run(part)
+                if i % 2 == 1:
+                    run.bold = True
+                apply_fonts(run, styles["body"])
+                
+    return doc
+
+
+def auto_send_period_summary(db: Session, period: WeekPeriod, email: str) -> bool:
+    """对目标统计周期执行最新性比对，自动生成 AI 汇总报告（若有新提交），
+    并将其导出为 docx 附件发送到指定邮箱。发送成功后清理历史旧版本汇总。
+
+    Args:
+        db: 数据库会话对象。
+        period: 统计周期实体。
+        email: 接收邮箱地址。
+
+    Returns:
+        bool: 是否发送成功。
+    """
+    from loguru import logger
+    import tempfile
+    import os
+    import sys
+    from app.models import WeeklyReport, WeeklySummary
+    from app.services.summary_service import generate_summary
+
+    # 1. 检测最新性并自动重构生成
+    latest_report = (
+        db.query(WeeklyReport)
+        .filter(WeeklyReport.week_period_id == period.id)
+        .order_by(WeeklyReport.submitted_at.desc())
+        .first()
+    )
+    if not latest_report:
+        logger.warning(f"周期 {period.id} ({period.week_start} 至 {period.week_end}) 暂无任何成员提交周报，跳过自动汇总发送。")
+        return False
+
+    latest_summary = (
+        db.query(WeeklySummary)
+        .filter(WeeklySummary.week_period_id == period.id)
+        .order_by(WeeklySummary.generated_at.desc())
+        .first()
+    )
+
+    summary_to_send = None
+    
+    if not latest_summary or latest_report.submitted_at > latest_summary.generated_at:
+        logger.info(f"周期 {period.id} 检测到新提交或尚未生成过汇总，开始自动生成最新汇总报告...")
+        try:
+            summary_to_send = generate_summary(db, period)
+        except Exception as e:
+            logger.error(f"周期 {period.id} 自动生成最新汇总失败: {e}", exc_info=True)
+            return False
+    else:
+        logger.info(f"周期 {period.id} 无新成员提交，将直接使用历史最新版本进行发送。")
+        summary_to_send = latest_summary
+
+    # 2. 生成 DOCX 文件
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
+        temp_path = tmp.name
+        doc = build_docx_document(summary_to_send)
+        doc.save(temp_path)
+    
+    start_str = period.week_start.strftime("%Y%m%d")
+    end_str = period.week_end.strftime("%Y%m%d")
+
+    # 3. 投递邮件
+    try:
+        try:
+            from send_mail import send_mail
+        except ImportError:
+            root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+            if root_dir not in sys.path:
+                sys.path.append(root_dir)
+            from send_mail import send_mail
+
+        subject = f"自动发送：工作周报-数据库团队_{start_str}-{end_str}"
+        body = f"您好，当前周期 ({period.week_start} 至 {period.week_end}) 的数据库团队工作周报已自动截止并生成最新汇总，请查收附件。"
+        
+        send_mail(
+            subject=subject,
+            body=body,
+            to=email,
+            attach=[temp_path]
+        )
+        logger.success(f"周期 {period.id} 自动发送汇总邮件成功！收件人: {email}")
+    except Exception as e:
+        logger.error(f"周期 {period.id} 自动发送邮件投递失败: {e}", exc_info=True)
+        return False
+    finally:
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
+    # 4. 邮件发送成功后，清理当前周期的历史旧汇总记录，仅保留发送成功的目标版本
+    try:
+        db.query(WeeklySummary).filter(
+            WeeklySummary.week_period_id == period.id,
+            WeeklySummary.id != summary_to_send.id
+        ).delete()
+        db.commit()
+        logger.info(f"周期 {period.id} 历史旧草稿清理完毕，仅保留最终发送的 Summary ID: {summary_to_send.id}")
+    except Exception as e:
+        logger.error(f"周期 {period.id} 清理历史旧汇总记录时异常: {e}", exc_info=True)
+
+    return True
+
+
+async def auto_send_summary_loop():
+    """后台定时检查截止时间及延时，并自动发送的轮询协程守护任务。"""
+    import asyncio
+    from datetime import datetime, timedelta
+    from loguru import logger
+    from app.database import SessionLocal
+    from app.config import get_deadline_config
+    from app.services.report_service import get_or_create_current_period
+
+    logger.info("自动发送周报汇总后台轮询协程启动就绪。")
+    while True:
+        try:
+            await asyncio.sleep(60)
+
+            cfg = get_deadline_config()
+            if not cfg.auto_send_enabled or not cfg.auto_send_email:
+                continue
+
+            db = SessionLocal()
+            try:
+                period = get_or_create_current_period(db)
+                if not period:
+                    continue
+
+                if period.auto_sent_at is not None:
+                    continue
+
+                send_threshold = period.deadline + timedelta(minutes=period.auto_send_delay)
+                if datetime.now() < send_threshold:
+                    continue
+
+                logger.info(
+                    f"截止时间延时已到达阈值！开始对周期 {period.id} 执行自动汇总与投递流程。收件人: {cfg.auto_send_email}"
+                )
+                success = auto_send_period_summary(db, period, cfg.auto_send_email)
+                if success:
+                    period.auto_sent_at = datetime.now()
+                    db.commit()
+                    logger.success(f"周期 {period.id} 状态已成功更新 auto_sent_at 时间标记。")
+            except Exception as err:
+                logger.error(f"自动发送轮询内部事务出现故障: {err}", exc_info=True)
+            finally:
+                db.close()
+
+        except asyncio.CancelledError:
+            logger.info("自动发送周报汇总协程收到取消请求，退出轮询。")
+            break
+        except Exception as e:
+            logger.error(f"自动发送后台协程发生主异常: {e}", exc_info=True)
+
+
 @router.post("/generate", response_model=SummaryOut)
 def trigger_summary(db: Session = Depends(get_db)):
     """手动触发生成当前周期的 AI 工作周报汇总。
@@ -242,7 +471,6 @@ def download_summary(summary_id: int, db: Session = Depends(get_db)):
     import io
     import urllib.parse
     from fastapi.responses import Response
-    from docx import Document
 
     summary = (
         db.query(WeeklySummary)
@@ -253,75 +481,7 @@ def download_summary(summary_id: int, db: Session = Depends(get_db)):
     if not summary:
         raise HTTPException(404, "汇总不存在")
         
-    from docx.oxml.ns import qn
-    from docx.shared import RGBColor
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
-
-    doc = Document()
-    
-    styles = load_docx_styles()
-    from docx.oxml import OxmlElement
-
-    def apply_fonts(run, style_cfg):
-        """设置 Word 运行段的中西文字体及字号。
-
-        Args:
-            run: Word 文档 of Run 运行块对象。
-            style_cfg: 包含 ch_font、ch_size、en_font 配置的字典。
-        """
-        from docx.shared import Pt
-        run.font.color.rgb = RGBColor(0, 0, 0)
-        
-        ch_font = style_cfg["ch_font"]
-        ch_size = style_cfg["ch_size"]
-        en_font = style_cfg.get("en_font", "Times New Roman")
-        
-        # 1. 设置中西文字体
-        rPr = run._element.get_or_add_rPr()
-        rFonts = rPr.find(qn('w:rFonts'))
-        if rFonts is None:
-            rFonts = OxmlElement('w:rFonts')
-            rPr.append(rFonts)
-        rFonts.set(qn('w:ascii'), en_font)
-        rFonts.set(qn('w:hAnsi'), en_font)
-        rFonts.set(qn('w:eastAsia'), ch_font)
-        
-        # 2. 统一设置字号，避免中文字号被西文字号覆盖收缩
-        run.font.size = Pt(ch_size)
-
-    for line in summary.summary_content.split('\n'):
-        line = line.strip()
-        if not line:
-            continue
-        if line.startswith('# '):
-            p = doc.add_heading(line[2:], level=1)
-            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            for r in p.runs:
-                apply_fonts(r, styles["heading_1"])
-        elif line.startswith('## '):
-            p = doc.add_heading(line[3:], level=2)
-            for r in p.runs:
-                apply_fonts(r, styles["heading_2"])
-        elif line.startswith('### '):
-            p = doc.add_heading(line[4:], level=3)
-            for r in p.runs:
-                apply_fonts(r, styles["heading_3"])
-        elif line.startswith('- '):
-            p = doc.add_paragraph(style='List Bullet')
-            parts = line[2:].split('**')
-            for i, part in enumerate(parts):
-                run = p.add_run(part)
-                if i % 2 == 1:
-                    run.bold = True
-                apply_fonts(run, styles["body"])
-        else:
-            p = doc.add_paragraph()
-            parts = line.split('**')
-            for i, part in enumerate(parts):
-                run = p.add_run(part)
-                if i % 2 == 1:
-                    run.bold = True
-                apply_fonts(run, styles["body"])
+    doc = build_docx_document(summary)
 
     file_stream = io.BytesIO()
     doc.save(file_stream)
@@ -370,10 +530,6 @@ def send_summary_mail(
     import os
     import sys
     import tempfile
-    from docx import Document
-    from docx.oxml.ns import qn
-    from docx.shared import RGBColor
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
     try:
         from send_mail import send_mail
     except ImportError:
@@ -394,87 +550,14 @@ def send_summary_mail(
     start_str = summary.week_period.week_start.strftime('%Y%m%d')
     end_str = summary.week_period.week_end.strftime('%Y%m%d')
 
-    # 主题和正文默认值处理
-    subject = req.subject or f"工作周报-数据库团队_{start_str}-{end_str}"
-    body = req.body or "大家请查看附件中的数据库团队工作周报，谢谢。"
+    # 生成临时 Word 文件
+    doc = build_docx_document(summary)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
+        doc.save(tmp.name)
+        temp_path = tmp.name
 
-    # 动态生成 Word 格式附件
-    try:
-        doc = Document()
-
-        styles = load_docx_styles()
-        from docx.oxml import OxmlElement
-
-        def apply_fonts(run, style_cfg):
-            """设置 Word 运行段的中西文字体及字号。
-
-            Args:
-                run: Word 文档的 Run 运行块对象.
-                style_cfg: 包含 ch_font、ch_size、en_font 配置的字典。
-            """
-            from docx.shared import Pt
-            run.font.color.rgb = RGBColor(0, 0, 0)
-            
-            ch_font = style_cfg["ch_font"]
-            ch_size = style_cfg["ch_size"]
-            en_font = style_cfg.get("en_font", "Times New Roman")
-            
-            # 1. 设置中西文字体
-            rPr = run._element.get_or_add_rPr()
-            rFonts = rPr.find(qn('w:rFonts'))
-            if rFonts is None:
-                rFonts = OxmlElement('w:rFonts')
-                rPr.append(rFonts)
-            rFonts.set(qn('w:ascii'), en_font)
-            rFonts.set(qn('w:hAnsi'), en_font)
-            rFonts.set(qn('w:eastAsia'), ch_font)
-            
-            # 2. 统一设置字号，避免中文字号被西文字号覆盖收缩
-            run.font.size = Pt(ch_size)
-
-        for line in summary.summary_content.split('\n'):
-            line = line.strip()
-            if not line:
-                continue
-            if line.startswith('# '):
-                p = doc.add_heading(line[2:], level=1)
-                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                for r in p.runs:
-                    apply_fonts(r, styles["heading_1"])
-            elif line.startswith('## '):
-                p = doc.add_heading(line[3:], level=2)
-                for r in p.runs:
-                    apply_fonts(r, styles["heading_2"])
-            elif line.startswith('### '):
-                p = doc.add_heading(line[4:], level=3)
-                for r in p.runs:
-                    apply_fonts(r, styles["heading_3"])
-            elif line.startswith('- '):
-                p = doc.add_paragraph(style='List Bullet')
-                parts = line[2:].split('**')
-                for i, part in enumerate(parts):
-                    run = p.add_run(part)
-                    if i % 2 == 1:
-                        run.bold = True
-                    apply_fonts(run, styles["body"])
-            else:
-                p = doc.add_paragraph()
-                parts = line.split('**')
-                for i, part in enumerate(parts):
-                    run = p.add_run(part)
-                    if i % 2 == 1:
-                        run.bold = True
-                    apply_fonts(run, styles["body"])
-
-        # 写入到临时文件中
-        filename = f"工作周报-数据库团队_{start_str}-{end_str}.docx"
-        temp_dir = tempfile.gettempdir()
-        temp_path = os.path.join(temp_dir, filename)
-        doc.save(temp_path)
-    except Exception as e:
-        from loguru import logger
-        logger.error(f"生成 Word 邮件附件失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"生成 Word 邮件附件失败: {e}")
+    subject = req.subject or f"工作周报 ({start_str} - {end_str})"
+    body = req.body or f"附件为 {start_str}-{end_str} 的工作周报汇总，请查收。"
 
     # 调用邮件推送工具
     try:

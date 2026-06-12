@@ -199,6 +199,11 @@ export default function Summary() {
               (本周期最近一次生成时间：{format(parseISO(data.current_summary.generated_at), 'yyyy-MM-dd HH:mm')})
             </span></>
           )}
+          {data.current_period && data.current_period.auto_sent_at && (
+            <><br/><span className="text-emerald-500 font-semibold">
+              (自动发送时间：{format(parseISO(data.current_period.auto_sent_at), 'yyyy-MM-dd HH:mm')})
+            </span></>
+          )}
           {data.last_report && (
             <><br/><span className="text-indigo-500 font-semibold">
               (最后更新人员：{data.last_report.member.name} - {format(parseISO(data.last_report.submitted_at), 'yyyy-MM-dd HH:mm')})
@@ -239,7 +244,12 @@ export default function Summary() {
                           </div>
                         </td>
                         <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle text-slate-500">
-                          最新: {format(parseISO(latest.generated_at), 'yyyy-MM-dd HH:mm')}
+                          <div>最新: {format(parseISO(latest.generated_at), 'yyyy-MM-dd HH:mm')}</div>
+                          {period.auto_sent_at && (
+                            <div className="text-xs text-emerald-500 font-semibold mt-0.5">
+                              已自动发送: {format(parseISO(period.auto_sent_at), 'MM-dd HH:mm')}
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle flex items-center gap-1.5">
                            <button className={btnSmSecondary} onClick={(e) => { e.stopPropagation(); setViewSummary(latest); }}><FileText size={14} /> 查看最新</button>

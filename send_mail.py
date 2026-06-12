@@ -55,7 +55,7 @@ def send_mail(
                 try:
                     f = open(filepath, "rb")
                     file_handles.append(f)
-                    files.append(("file", (filename, f, "application/octet-stream")))
+                    files.append(("attach", (filename, f)))
                 except Exception as e:
                     print(f"打开附件 {filepath} 失败: {e}")
             else:

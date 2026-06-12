@@ -84,6 +84,8 @@ class WeekPeriodOut(BaseModel):
     week_end: date
     deadline: datetime
     status: str
+    auto_send_delay: int
+    auto_sent_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 

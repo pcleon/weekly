@@ -38,7 +38,14 @@ def get_or_create_current_period(db: Session) -> WeekPeriod:
     ).first()
 
     if not period:
-        period = WeekPeriod(**info)
+        from app.config import get_deadline_config
+        cfg = get_deadline_config()
+        period = WeekPeriod(
+            week_start=info["week_start"],
+            week_end=info["week_end"],
+            deadline=info["deadline"],
+            auto_send_delay=cfg.auto_send_delay
+        )
         db.add(period)
         db.commit()
         db.refresh(period)

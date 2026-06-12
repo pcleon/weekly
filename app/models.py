@@ -60,6 +60,12 @@ class WeekPeriod(Base):
     status: Mapped[str] = mapped_column(
         String(20), default="open", comment="open / closed"
     )
+    auto_send_delay: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", comment="截止时间到后延迟自动发送的分钟数"
+    )
+    auto_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True, comment="自动发送的具体时间"
+    )
 
     # 关联关系
     reports: Mapped[list["WeeklyReport"]] = relationship(back_populates="week_period")

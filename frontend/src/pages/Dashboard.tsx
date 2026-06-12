@@ -7,9 +7,10 @@ import { CalendarClock, Settings, Edit, Users } from 'lucide-react';
 export default function Dashboard() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [configParams, setConfigParams] = useState({ day_of_week: 0, hour: 0, minute: 0, auto_send_enabled: false, auto_send_email: '', auto_send_delay: 0 });
   const [timeLeft, setTimeLeft] = useState({ d: 0, h: 0, m: 0, s: 0, expired: false });
   const [showConfig, setShowConfig] = useState(false);
-  const [configParams, setConfigParams] = useState({ day_of_week: 0, hour: 0, minute: 0 });
+
 
   useEffect(() => {
     fetchData();
@@ -59,7 +60,10 @@ export default function Dashboard() {
       setConfigParams({
         day_of_week: res.day_of_week,
         hour: res.hour,
-        minute: res.minute
+        minute: res.minute,
+        auto_send_enabled: res.auto_send_enabled || false,
+        auto_send_email: res.auto_send_email || '',
+        auto_send_delay: res.auto_send_delay || 0
       });
       setShowConfig(true);
     } catch (e) { }
@@ -228,6 +232,38 @@ export default function Dashboard() {
                   />
                 </div>
               </div>
+              <div className="mb-5">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="auto_send_enabled"
+                    className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
+                    checked={configParams.auto_send_enabled}
+                    onChange={e => setConfigParams({ ...configParams, auto_send_enabled: e.target.checked })}
+                  />
+                  <label htmlFor="auto_send_enabled" className="text-[13px] font-semibold text-slate-500 cursor-pointer select-none">开启截止后自动汇总发送</label>
+                </div>
+              </div>
+              {configParams.auto_send_enabled && (
+                <>
+                  <div className="mb-5 flex gap-2.5">
+                    <div className="flex-1">
+                      <label className="block text-[13px] font-semibold text-slate-500 mb-1.5">延迟发送时间 (分钟)</label>
+                      <input type="number" className={inputClass} min="0" required
+                        value={configParams.auto_send_delay}
+                        onChange={e => setConfigParams({ ...configParams, auto_send_delay: Math.max(0, parseInt(e.target.value) || 0) })}
+                      />
+                    </div>
+                  </div>
+                  <div className="mb-5">
+                    <label className="block text-[13px] font-semibold text-slate-500 mb-1.5">接收邮箱地址</label>
+                    <input type="email" className={inputClass} placeholder="example@mail.com" required
+                      value={configParams.auto_send_email}
+                      onChange={e => setConfigParams({ ...configParams, auto_send_email: e.target.value })}
+                    />
+                  </div>
+                </>
+              )}
               <button type="submit" className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-500 text-white border-none rounded-lg text-[15px] font-semibold cursor-pointer transition-all hover:bg-indigo-600 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)]">保存</button>
             </form>
           </div>

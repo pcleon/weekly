@@ -35,6 +35,14 @@ app.include_router(reports.router)
 app.include_router(summaries.router)
 app.include_router(pages.router)
 
+import asyncio
+
+@app.on_event("startup")
+async def start_auto_send_task():
+    """在应用启动时拉起后台自动汇总与发送的轮询协程。"""
+    from app.api.summaries import auto_send_summary_loop
+    asyncio.create_task(auto_send_summary_loop())
+
 from app.config import DeadlineConfig, get_deadline_config, save_deadline_config
 
 @app.get("/api/settings/deadline")
@@ -47,6 +55,7 @@ def api_update_deadline(cfg: DeadlineConfig, db: Session = Depends(get_db)):
     current_period = get_or_create_current_period(db)
     info = WeekPeriod.calc_for_date(current_period.week_start)
     current_period.deadline = info["deadline"]
+    current_period.auto_send_delay = cfg.auto_send_delay
     db.commit()
     return {"message": "截止时间已更新", "new_deadline": current_period.deadline.isoformat()}
 

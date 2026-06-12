@@ -129,6 +129,7 @@ def get_summary_page_data(db: Session = Depends(get_db)):
     return {
         "summaries": [SummaryOut.model_validate(s) for s in all_summaries],
         "current_period_id": current_period.id,
+        "current_period": WeekPeriodOut.model_validate(current_period),
         "current_summary": SummaryOut.model_validate(current_summary) if current_summary else None,
         "last_report": ReportOut.model_validate(last_report) if last_report else None,
     }
