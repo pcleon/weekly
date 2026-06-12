@@ -151,6 +151,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 | `ENABLE_SSO` | 是否启用 SSO | `True` |
 | `SSO_CLIENT_ID` | SSO 客户端 ID | - |
 | `SSO_CLIENT_SECRET` | SSO 客户端密钥 | - |
+| `SSO_SERVER_METADATA_URL` | SSO OIDC 发现文档地址 | - |
 | `SSO_AUTHORIZE_URL` | SSO 授权地址 | - |
 | `SSO_TOKEN_URL` | SSO Token 地址 | - |
 | `SSO_USERINFO_URL` | SSO 用户信息地址 | - |

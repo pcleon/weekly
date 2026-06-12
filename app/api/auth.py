@@ -14,16 +14,28 @@ settings = get_settings()
 oauth = OAuth()
 
 if settings.enable_sso:
-    oauth.register(
-        name="sso",
-        client_id=settings.sso_client_id,
-        client_secret=settings.sso_client_secret,
-        server_metadata_url=settings.sso_userinfo_url.replace("/userinfo", "/.well-known/openid-configuration") if settings.sso_userinfo_url else None,
-        authorize_url=settings.sso_authorize_url,
-        access_token_url=settings.sso_token_url,
-        userinfo_endpoint=settings.sso_userinfo_url,
-        client_kwargs={"scope": "openid profile email"},
-    )
+    # 构造 SSO 注册配置参数，优先使用标准的 OIDC 发现文档地址。
+    # 若配置了 sso_server_metadata_url，则 Authlib 会自动加载所有关联端点。
+    # 否则，回退到原有的自定义端点和兼容替换逻辑。
+    sso_config = {
+        "name": "sso",
+        "client_id": settings.sso_client_id,
+        "client_secret": settings.sso_client_secret,
+        "client_kwargs": {"scope": "openid profile email"},
+    }
+    if settings.sso_server_metadata_url:
+        sso_config["server_metadata_url"] = settings.sso_server_metadata_url
+    else:
+        sso_config["server_metadata_url"] = (
+            settings.sso_userinfo_url.replace("/userinfo", "/.well-known/openid-configuration")
+            if settings.sso_userinfo_url
+            else None
+        )
+        sso_config["authorize_url"] = settings.sso_authorize_url
+        sso_config["access_token_url"] = settings.sso_token_url
+        sso_config["userinfo_endpoint"] = settings.sso_userinfo_url
+
+    oauth.register(**sso_config)
 
 def get_signer():
     """获取 URL 安全的数据签名序列化器。

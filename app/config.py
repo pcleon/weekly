@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     enable_sso: bool = False
     sso_client_id: str = ""
     sso_client_secret: str = ""
+    sso_server_metadata_url: str = ""  # OIDC 发现文档地址 (/.well-known/openid-configuration)
     sso_authorize_url: str = ""
     sso_token_url: str = ""
     sso_userinfo_url: str = ""
