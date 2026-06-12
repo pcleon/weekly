@@ -13,6 +13,8 @@ export default function Templates() {
   const [formData, setFormData] = useState({ name: '', content: '', is_default: false, system_prompt: '' });
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<any>(null);
+  const [editFormData, setEditFormData] = useState({ name: '', content: '', is_default: false, system_prompt: '' });
 
   useEffect(() => {
     fetchData();
@@ -51,6 +53,47 @@ export default function Templates() {
       const tpl: any = await api.get(`/templates/${id}`);
       setViewTemplate(tpl);
     } catch (e) {}
+  };
+
+  const openEdit = async (id: number) => {
+    try {
+      const tpl: any = await api.get(`/templates/${id}`);
+      setEditingTemplate(tpl);
+      setEditFormData({
+        name: tpl.name || '',
+        content: tpl.content || '',
+        is_default: tpl.is_default || false,
+        system_prompt: tpl.system_prompt || ''
+      });
+    } catch (e) {}
+  };
+
+  const submitEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editFormData.name.trim()) {
+      showToast('请输入模板名称', 'error');
+      return;
+    }
+    if (!editFormData.content.trim()) {
+      showToast('请提供模板内容', 'error');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      await api.put(`/templates/${editingTemplate.id}`, {
+        name: editFormData.name.trim(),
+        content: editFormData.content.trim(),
+        is_default: editFormData.is_default,
+        system_prompt: editFormData.system_prompt ? editFormData.system_prompt.trim() : null
+      });
+      showToast('模板修改成功');
+      setEditingTemplate(null);
+      fetchData();
+    } catch (e) {
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const submitAdd = async (e: React.FormEvent) => {
@@ -161,6 +204,7 @@ export default function Templates() {
                     <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle text-slate-400">{t.updated_at ? format(parseISO(t.updated_at), 'yyyy-MM-dd HH:mm') : ''}</td>
                     <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle flex items-center gap-1.5">
                       <button className={btnSmSecondary} onClick={() => openView(t.id)}>查看</button>
+                      <button className={btnSmSecondary} onClick={() => openEdit(t.id)}>编辑</button>
                       {t.file_path && (
                         <a className={`${btnSmSecondary} text-decoration-none`} href={`/api/templates/${t.id}/download`}>下载</a>
                       )}
@@ -233,27 +277,79 @@ export default function Templates() {
       {/* 查看模板内容模态框 */}
       {viewTemplate && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1000] flex justify-center items-center animate-modal-in" onClick={() => setViewTemplate(null)}>
-          <div className="bg-white border border-slate-200 rounded-2xl p-7 w-[90%] max-w-[640px] max-h-[85vh] flex flex-col shadow-[0_20px_60px_rgba(0,0,0,0.5)]" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white border border-slate-200 rounded-2xl p-7 w-[95%] max-w-[1200px] max-h-[90vh] flex flex-col shadow-[0_20px_60px_rgba(0,0,0,0.5)] transition-all" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6 shrink-0">
               <h3 className="text-lg font-bold">模板详情</h3>
               <button className="bg-transparent border-none text-slate-500 text-xl cursor-pointer p-1 transition-colors hover:text-slate-900" onClick={() => setViewTemplate(null)}>✕</button>
             </div>
-            <div className="flex-1 overflow-y-auto pr-1">
-              <div className="mb-5">
-                <h4 className="text-[13px] font-bold text-slate-500 mb-1.5">周报填写模板内容</h4>
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 min-h-[150px] whitespace-pre-wrap font-mono text-sm text-slate-700">
+            <div className={viewTemplate.system_prompt ? "grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-y-auto flex-1 pr-1" : "grid grid-cols-1 gap-6 overflow-y-auto flex-1 pr-1"}>
+              
+              <div className="flex flex-col flex-1">
+                <div className="flex justify-between items-center mb-2 shrink-0">
+                  <h4 className="text-[13px] font-bold text-slate-500">周报填写模板内容</h4>
+                </div>
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 whitespace-pre-wrap font-mono text-sm text-slate-700 overflow-y-auto flex-1 min-h-[500px]">
                   {viewTemplate.content}
                 </div>
               </div>
+
               {viewTemplate.system_prompt && (
-                <div className="mb-5">
-                  <h4 className="text-[13px] font-bold text-slate-500 mb-1.5">AI汇总系统设定提示词</h4>
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 min-h-[100px] whitespace-pre-wrap font-mono text-sm text-slate-700">
+                <div className="flex flex-col flex-1">
+                  <div className="flex justify-between items-center mb-2 shrink-0">
+                    <h4 className="text-[13px] font-bold text-slate-500">AI汇总系统设定提示词</h4>
+                  </div>
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 whitespace-pre-wrap font-mono text-sm text-slate-700 overflow-y-auto flex-1 min-h-[500px]">
                     {viewTemplate.system_prompt}
                   </div>
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 编辑模板模态框 */}
+      {editingTemplate && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1000] flex justify-center items-center animate-modal-in" onClick={() => setEditingTemplate(null)}>
+          <div className="bg-white border border-slate-200 rounded-2xl p-7 w-[95%] max-w-[1200px] max-h-[90vh] flex flex-col shadow-[0_20px_60px_rgba(0,0,0,0.5)]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6 shrink-0">
+              <h3 className="text-lg font-bold">编辑模板</h3>
+              <button className="bg-transparent border-none text-slate-500 text-xl cursor-pointer p-1 transition-colors hover:text-slate-900" onClick={() => setEditingTemplate(null)}>✕</button>
+            </div>
+            <form onSubmit={submitEdit} className="flex flex-col flex-1 overflow-hidden">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-y-auto flex-1 pr-1 mb-5">
+                {/* 左栏：模板基本信息 */}
+                <div className="flex flex-col flex-1">
+                  <div className="mb-4 shrink-0">
+                    <label className="block text-[13px] font-semibold text-slate-500 mb-1.5">模板名称 *</label>
+                    <input type="text" className={inputClass} placeholder="如：通用周报模板" required 
+                      value={editFormData.name} onChange={e => setEditFormData({...editFormData, name: e.target.value})} />
+                  </div>
+                  <div className="flex flex-col flex-1 min-h-[350px]">
+                    <label className="block text-[13px] font-semibold text-slate-500 mb-1.5 shrink-0">模板内容（支持 Markdown）*</label>
+                    <textarea className={`${inputClass} flex-1 font-mono resize-none`} 
+                      placeholder="## 本周工作&#10;&#10;- &#10;&#10;## 下周计划&#10;&#10;- &#10;&#10;## 需要协调的问题&#10;&#10;- " required
+                      value={editFormData.content} onChange={e => setEditFormData({...editFormData, content: e.target.value})}></textarea>
+                  </div>
+                </div>
+
+                {/* 右栏：AI配置及设定 */}
+                <div className="flex flex-col flex-1">
+                  <div className="flex flex-col flex-1 min-h-[350px] mb-4">
+                    <label className="block text-[13px] font-semibold text-slate-500 mb-1.5 shrink-0">AI汇总系统设定提示词 (System Prompt - 可选)</label>
+                    <textarea className={`${inputClass} flex-1 font-mono resize-none`} 
+                      placeholder="请输入大模型汇总的系统指令设定..."
+                      value={editFormData.system_prompt} onChange={e => setEditFormData({...editFormData, system_prompt: e.target.value})}></textarea>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <input type="checkbox" id="editIsDefault" className="w-4 h-4 text-indigo-500 border-slate-300 rounded focus:ring-indigo-500"
+                      checked={editFormData.is_default} onChange={e => setEditFormData({...editFormData, is_default: e.target.checked})} />
+                    <label htmlFor="editIsDefault" className="text-sm font-medium text-slate-700 cursor-pointer select-none">设为默认模板</label>
+                  </div>
+                </div>
+              </div>
+              <button type="submit" className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-500 text-white border-none rounded-lg text-[15px] font-semibold cursor-pointer transition-all hover:bg-indigo-600 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)] disabled:opacity-70 disabled:cursor-not-allowed shrink-0" disabled={submitting}>保存修改</button>
+            </form>
           </div>
         </div>
       )}

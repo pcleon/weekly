@@ -1,9 +1,9 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api, { showToast } from '../api';
 import { MdEditor } from 'md-editor-rt';
 import 'md-editor-rt/lib/style.css';
-import { Send } from 'lucide-react';
+import { Send, Maximize2, Minimize2 } from 'lucide-react';
 
 export default function ReportForm() {
   const [data, setData] = useState<any>(null);
@@ -15,6 +15,7 @@ export default function ReportForm() {
   const [personalTemplateId, setPersonalTemplateId] = useState('');
   const [personalContent, setPersonalContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState<'both' | 'personal' | 'summary'>('both');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -116,12 +117,22 @@ export default function ReportForm() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div className={activeTab === 'both' ? "grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6" : "grid grid-cols-1 gap-6 mb-6"}>
           {/* 左边对话框：完整个人周报 */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 transition-colors hover:border-indigo-500/30">
+          <div className={`bg-white border border-slate-200 rounded-2xl p-6 transition-all hover:border-indigo-500/30 ${activeTab === 'summary' ? 'hidden' : ''}`}>
             <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-800">1. 完整个人周报</h3>
-              <span className="text-xs px-2 py-1 bg-slate-100 text-slate-500 rounded font-medium">个人周报记录</span>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-slate-800">1. 完整个人周报</h3>
+                <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-500 rounded font-medium">个人周报记录</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab(activeTab === 'personal' ? 'both' : 'personal')}
+                className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/80 rounded-lg transition-all cursor-pointer font-medium"
+                title={activeTab === 'personal' ? "还原并排编辑" : "最大化全页编辑"}
+              >
+                {activeTab === 'personal' ? <><Minimize2 size={13} /> 还原</> : <><Maximize2 size={13} /> 全页</>}
+              </button>
             </div>
             
             <div className="mb-5">
@@ -143,16 +154,26 @@ export default function ReportForm() {
                 preview={false} 
                 htmlPreview={false} 
                 toolbarsExclude={['github', 'save', 'htmlPreview', 'catalog']} 
-                style={{ height: '400px' }} 
+                style={{ height: activeTab === 'both' ? '400px' : '650px' }} 
               />
             </div>
           </div>
 
           {/* 右边对话框：周报汇总所需信息 */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 transition-colors hover:border-indigo-500/30">
+          <div className={`bg-white border border-slate-200 rounded-2xl p-6 transition-all hover:border-indigo-500/30 ${activeTab === 'personal' ? 'hidden' : ''}`}>
             <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-800">2. 汇报与汇总信息</h3>
-              <span className="text-xs px-2 py-1 bg-indigo-50 text-indigo-600 rounded font-medium">用于 AI 自动生成汇总</span>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-slate-800">2. 汇报与汇总信息</h3>
+                <span className="text-xs px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded font-medium">用于 AI 自动生成汇总</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab(activeTab === 'summary' ? 'both' : 'summary')}
+                className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/80 rounded-lg transition-all cursor-pointer font-medium"
+                title={activeTab === 'summary' ? "还原并排编辑" : "最大化全页编辑"}
+              >
+                {activeTab === 'summary' ? <><Minimize2 size={13} /> 还原</> : <><Maximize2 size={13} /> 全页</>}
+              </button>
             </div>
 
             <div className="mb-5">
@@ -174,7 +195,7 @@ export default function ReportForm() {
                 preview={false} 
                 htmlPreview={false} 
                 toolbarsExclude={['github', 'save', 'htmlPreview', 'catalog']} 
-                style={{ height: '400px' }} 
+                style={{ height: activeTab === 'both' ? '400px' : '650px' }} 
               />
             </div>
           </div>

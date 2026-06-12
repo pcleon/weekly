@@ -3,7 +3,7 @@ import api, { showToast } from '../api';
 import { format, parseISO } from 'date-fns';
 import { MdPreview } from 'md-editor-rt';
 import 'md-editor-rt/lib/preview.css';
-import { Settings, Bot, Download, FileText } from 'lucide-react';
+import { Settings, Bot, Download, FileText, Maximize2, Minimize2 } from 'lucide-react';
 
 export default function Summary() {
   const [data, setData] = useState<any>(null);
@@ -13,6 +13,7 @@ export default function Summary() {
   const [promptConfig, setPromptConfig] = useState({ system_prompt: '', user_template: '' });
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [configActiveTab, setConfigActiveTab] = useState<'both' | 'system' | 'user'>('both');
   
   const [viewSummary, setViewSummary] = useState<any>(null);
   const [generating, setGenerating] = useState(false);
@@ -58,6 +59,7 @@ export default function Summary() {
         user_template: res.user_template
       });
       setSelectedTemplateId('');
+      setConfigActiveTab('both');
       
       const tpls: any = await api.get('/templates');
       setTemplates(tpls);
@@ -267,17 +269,42 @@ export default function Summary() {
             </div>
 
             <form onSubmit={saveConfig} className="flex flex-col flex-1 overflow-hidden">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 overflow-y-auto pr-1 mb-5">
-                <div className="flex flex-col mb-5 lg:mb-0">
-                  <label className="block text-[13px] font-semibold text-slate-500 mb-1">系统设定与指令 (System Prompt)</label>
-                  <p className="text-xs text-slate-400 mb-2">告诉大模型它的角色以及必须遵守的规则。</p>
-                  <textarea className={`${inputClass} flex-1 min-h-[350px] lg:min-h-[420px] resize-none`}
+              <div className={configActiveTab === 'both' ? "grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 overflow-y-auto pr-1 mb-5" : "grid grid-cols-1 gap-6 flex-1 overflow-y-auto pr-1 mb-5"}>
+                <div className={`flex flex-col mb-5 lg:mb-0 ${configActiveTab === 'user' ? 'hidden' : ''}`}>
+                  <div className="flex justify-between items-center mb-2 shrink-0">
+                    <div>
+                      <label className="block text-[13px] font-semibold text-slate-500">系统设定与指令 (System Prompt)</label>
+                      <p className="text-xs text-slate-400 mt-0.5">告诉大模型它的角色以及必须遵守的规则。</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setConfigActiveTab(configActiveTab === 'system' ? 'both' : 'system')}
+                      className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/80 rounded-lg transition-all cursor-pointer font-medium"
+                      title={configActiveTab === 'system' ? "还原并排编辑" : "最大化全页编辑"}
+                    >
+                      {configActiveTab === 'system' ? <><Minimize2 size={12} /> 还原</> : <><Maximize2 size={12} /> 全屏</>}
+                    </button>
+                  </div>
+                  <textarea className={`${inputClass} flex-1 min-h-[380px] lg:min-h-[450px] resize-none`}
                     value={promptConfig.system_prompt} onChange={e => setPromptConfig({...promptConfig, system_prompt: e.target.value})}></textarea>
                 </div>
-                <div className="flex flex-col mb-5 lg:mb-0">
-                  <label className="block text-[13px] font-semibold text-slate-500 mb-1">汇总 Markdown 模板 (User Template)</label>
-                  <p className="text-xs text-slate-400 mb-2">在此处编辑最终期望生成的周报框架排版结构。</p>
-                  <textarea className={`${inputClass} flex-1 min-h-[350px] lg:min-h-[420px] resize-none`}
+                
+                <div className={`flex flex-col mb-5 lg:mb-0 ${configActiveTab === 'system' ? 'hidden' : ''}`}>
+                  <div className="flex justify-between items-center mb-2 shrink-0">
+                    <div>
+                      <label className="block text-[13px] font-semibold text-slate-500">汇总 Markdown 模板 (User Template)</label>
+                      <p className="text-xs text-slate-400 mt-0.5">在此处编辑最终期望生成的周报框架排版结构。</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setConfigActiveTab(configActiveTab === 'user' ? 'both' : 'user')}
+                      className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/80 rounded-lg transition-all cursor-pointer font-medium"
+                      title={configActiveTab === 'user' ? "还原并排编辑" : "最大化全页编辑"}
+                    >
+                      {configActiveTab === 'user' ? <><Minimize2 size={12} /> 还原</> : <><Maximize2 size={12} /> 全屏</>}
+                    </button>
+                  </div>
+                  <textarea className={`${inputClass} flex-1 min-h-[380px] lg:min-h-[450px] resize-none`}
                     value={promptConfig.user_template} onChange={e => setPromptConfig({...promptConfig, user_template: e.target.value})}></textarea>
                 </div>
               </div>
