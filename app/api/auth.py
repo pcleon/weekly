@@ -21,7 +21,7 @@ if settings.enable_sso:
         "name": "sso",
         "client_id": settings.sso_client_id,
         "client_secret": settings.sso_client_secret,
-        "client_kwargs": {"scope": "openid profile email"},
+        "client_kwargs": {"scope": "openid profile email custom_data"},
     }
     if settings.sso_server_metadata_url:
         sso_config["server_metadata_url"] = settings.sso_server_metadata_url
@@ -89,7 +89,10 @@ async def auth_callback(request: Request, db: Session = Depends(get_db)):
         
     try:
         token = await oauth.sso.authorize_access_token(request)
-        userinfo = token.get("userinfo") or await oauth.sso.userinfo(token=token)
+        if settings.sso_department_from_userinfo:
+            userinfo = await oauth.sso.userinfo(token=token)
+        else:
+            userinfo = token.get("userinfo") or await oauth.sso.userinfo(token=token)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"SSO Auth Failed: {str(e)}")
 
@@ -102,7 +105,9 @@ async def auth_callback(request: Request, db: Session = Depends(get_db)):
     # 自动创建或查找用户
     member = db.query(Member).filter(Member.name == name).first()
     if not member:
-        member = Member(name=name, department="自动创建(SSO)")
+        # 提取部门信息，优先从 custom_data 获取，其次直接从 userinfo 获取，默认值为 "sso"
+        department = (userinfo.get("custom_data") or {}).get("department") or userinfo.get("department") or "sso"
+        member = Member(name=name, department=department)
         db.add(member)
         db.commit()
         db.refresh(member)

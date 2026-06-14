@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     sso_token_url: str = ""
     sso_userinfo_url: str = ""
     sso_secret_key: str = "change_me_to_a_random_string_in_production"
+    sso_department_from_userinfo: bool = False
 
     # 邮件服务配置
     mail_url: str = "http://localhost:8000/api/mock-mail"
