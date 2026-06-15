@@ -206,7 +206,7 @@ export default function Summary() {
           )}
           {data.last_report && (
             <><br/><span className="text-indigo-500 font-semibold">
-              (最后更新人员：{data.last_report.member.name} - {format(parseISO(data.last_report.submitted_at), 'yyyy-MM-dd HH:mm')})
+              (最后更新人员：{data.last_report.member.alias || data.last_report.member.name} - {format(parseISO(data.last_report.submitted_at), 'yyyy-MM-dd HH:mm')})
             </span></>
           )}
         </p>

@@ -164,7 +164,7 @@ export default function Dashboard() {
               <thead>
                 <tr>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200">状态</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200">姓名</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200">成员</th>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200">团队</th>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200">提交时间</th>
                 </tr>
@@ -173,7 +173,7 @@ export default function Dashboard() {
                 {status.not_submitted.map((m: any) => (
                   <tr key={`n_${m.id}`} className="transition-colors hover:bg-slate-50">
                     <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle"><span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-500/10 text-red-500"><span className="w-2 h-2 rounded-full shrink-0 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"></span> 未交</span></td>
-                    <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">{m.name}</td>
+                    <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">{m.alias || m.name}</td>
                     <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">{m.department}</td>
                     <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle text-slate-400">-</td>
                   </tr>
@@ -181,7 +181,7 @@ export default function Dashboard() {
                 {status.submitted.map((m: any) => (
                   <tr key={`s_${m.member ? m.member.id : m.id}`} className="transition-colors hover:bg-slate-50">
                     <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle"><span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-500"><span className="w-2 h-2 rounded-full shrink-0 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span> 已交</span></td>
-                    <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">{m.member ? m.member.name : m.name}</td>
+                    <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">{m.member ? (m.member.alias || m.member.name) : (m.alias || m.name)}</td>
                     <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">{m.member ? m.member.department : m.department}</td>
                     <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle text-slate-400">{m.submitted_at ? format(parseISO(m.submitted_at), 'MM-dd HH:mm') : ''}</td>
                   </tr>

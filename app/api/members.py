@@ -42,7 +42,7 @@ def create_member(data: MemberCreate, db: Session = Depends(get_db)):
     Returns:
         新创建并保存的 Member 成员对象。
     """
-    member = Member(name=data.name, department=data.department)
+    member = Member(name=data.name, alias=data.alias, department=data.department)
     db.add(member)
     db.commit()
     db.refresh(member)

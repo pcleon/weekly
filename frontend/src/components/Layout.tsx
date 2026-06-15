@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import api from '../api';
 
 export default function Layout() {
-  const [user, setUser] = useState<{ id: number, name: string, department: string } | null>(null);
+  const [user, setUser] = useState<{ id: number, name: string, alias: string, department: string } | null>(null);
 
   useEffect(() => {
     api.get('/auth/me').then((res: any) => setUser(res)).catch(() => {});
@@ -53,10 +53,10 @@ export default function Layout() {
             <div className="border-t border-slate-200 pt-5 pb-1 flex flex-col gap-3">
               <div className="flex items-center gap-3 px-2">
                 <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 font-bold flex items-center justify-center flex-shrink-0">
-                  {user.name.charAt(0).toUpperCase()}
+                  {(user.alias || user.name).charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-col overflow-hidden">
-                  <div className="text-sm font-bold text-slate-900 truncate">{user.name}</div>
+                  <div className="text-sm font-bold text-slate-900 truncate">{user.alias || user.name}</div>
                   <div className="text-[11px] text-slate-500 truncate">{user.department}</div>
                 </div>
               </div>

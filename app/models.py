@@ -16,6 +16,7 @@ class Member(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
+    alias: Mapped[str] = mapped_column(String(100), nullable=False, default="")
     department: Mapped[str] = mapped_column(String(100), nullable=False, default="")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

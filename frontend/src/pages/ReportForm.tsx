@@ -111,7 +111,7 @@ export default function ReportForm() {
             <select className={selectClass} required value={memberId} onChange={e => setMemberId(e.target.value)}>
               <option value="">-- 请选择 --</option>
               {data.members.map((m: any) => (
-                <option key={m.id} value={m.id}>{m.name}（{m.department}）</option>
+                <option key={m.id} value={m.id.toString()}>{m.alias || m.name}（{m.department}）</option>
               ))}
             </select>
           </div>

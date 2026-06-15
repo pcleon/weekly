@@ -7,7 +7,9 @@ export default function Members() {
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
-  const [newMember, setNewMember] = useState({ name: '', department: '' });
+  const [showEdit, setShowEdit] = useState(false);
+  const [newMember, setNewMember] = useState({ name: '', alias: '', department: '' });
+  const [editMember, setEditMember] = useState({ id: 0, alias: '', department: '' });
 
   useEffect(() => {
     fetchMembers();
@@ -30,7 +32,7 @@ export default function Members() {
       await api.post('/members', newMember);
       showToast('添加成功');
       setShowAdd(false);
-      setNewMember({ name: '', department: '' });
+      setNewMember({ name: '', alias: '', department: '' });
       fetchMembers();
     } catch (e) {}
   };
@@ -46,6 +48,16 @@ export default function Members() {
         await api.put(`/members/${id}`, { is_active: true });
       }
       showToast(`已${action}`);
+      fetchMembers();
+    } catch (e) {}
+  };
+
+  const updateMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.put(`/members/${editMember.id}`, { alias: editMember.alias, department: editMember.department });
+      showToast('修改成功');
+      setShowEdit(false);
       fetchMembers();
     } catch (e) {}
   };
@@ -75,7 +87,8 @@ export default function Members() {
               <thead>
                 <tr>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200">ID</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200">姓名</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200">用户名</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200">显示名</th>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200">团队</th>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200">状态</th>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200">添加时间</th>
@@ -87,6 +100,7 @@ export default function Members() {
                   <tr key={m.id} className="transition-colors hover:bg-slate-50">
                     <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">{m.id}</td>
                     <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">{m.name}</td>
+                    <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">{m.alias || '-'}</td>
                     <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">{m.department || '-'}</td>
                     <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">
                       {m.is_active ? (
@@ -97,6 +111,9 @@ export default function Members() {
                     </td>
                     <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle text-slate-400">{m.created_at ? format(parseISO(m.created_at), 'yyyy-MM-dd') : ''}</td>
                     <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">
+                      <button className={`${btnSecondary} mr-2`} onClick={() => { setEditMember({ id: m.id, alias: m.alias || '', department: m.department || '' }); setShowEdit(true); }}>
+                        编辑
+                      </button>
                       <button className={btnSecondary} onClick={() => toggleMember(m.id, m.is_active)}>
                         {m.is_active ? '禁用' : '启用'}
                       </button>
@@ -125,10 +142,17 @@ export default function Members() {
             </div>
             <form onSubmit={addMember}>
               <div className="mb-5">
-                <label className="block text-[13px] font-semibold text-slate-500 mb-1.5">姓名 *</label>
-                <input type="text" className={inputClass} placeholder="请输入姓名" required 
+                <label className="block text-[13px] font-semibold text-slate-500 mb-1.5">用户名 *</label>
+                <input type="text" className={inputClass} placeholder="请输入用户名" required 
                   value={newMember.name} 
                   onChange={e => setNewMember({...newMember, name: e.target.value})} 
+                />
+              </div>
+              <div className="mb-5">
+                <label className="block text-[13px] font-semibold text-slate-500 mb-1.5">显示名</label>
+                <input type="text" className={inputClass} placeholder="请输入显示名（为空则显示用户名）" 
+                  value={newMember.alias} 
+                  onChange={e => setNewMember({...newMember, alias: e.target.value})} 
                 />
               </div>
               <div className="mb-5">
@@ -139,6 +163,34 @@ export default function Members() {
                 />
               </div>
               <button type="submit" className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-500 text-white border-none rounded-lg text-[15px] font-semibold cursor-pointer transition-all hover:bg-indigo-600 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)]">确认添加</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showEdit && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1000] flex justify-center items-center animate-modal-in">
+          <div className="bg-white border border-slate-200 rounded-2xl p-7 w-[90%] max-w-[560px] max-h-[85vh] overflow-y-auto shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-bold">编辑成员信息</h3>
+              <button className="bg-transparent border-none text-slate-500 text-xl cursor-pointer p-1 transition-colors hover:text-slate-900" onClick={() => setShowEdit(false)}>✕</button>
+            </div>
+            <form onSubmit={updateMember}>
+              <div className="mb-5">
+                <label className="block text-[13px] font-semibold text-slate-500 mb-1.5">显示名</label>
+                <input type="text" className={inputClass} placeholder="请输入显示名（为空则显示用户名）" 
+                  value={editMember.alias} 
+                  onChange={e => setEditMember({...editMember, alias: e.target.value})} 
+                />
+              </div>
+              <div className="mb-5">
+                <label className="block text-[13px] font-semibold text-slate-500 mb-1.5">团队</label>
+                <input type="text" className={inputClass} placeholder="请输入所属团队" 
+                  value={editMember.department} 
+                  onChange={e => setEditMember({...editMember, department: e.target.value})} 
+                />
+              </div>
+              <button type="submit" className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-500 text-white border-none rounded-lg text-[15px] font-semibold cursor-pointer transition-all hover:bg-indigo-600 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)]">保存修改</button>
             </form>
           </div>
         </div>

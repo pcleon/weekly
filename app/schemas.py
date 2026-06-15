@@ -7,12 +7,14 @@ from pydantic import BaseModel
 class MemberCreate(BaseModel):
     """创建成员时的数据传输对象。"""
     name: str
+    alias: str = ""
     department: str = ""
 
 
 class MemberUpdate(BaseModel):
     """更新成员信息时的数据传输对象。"""
     name: str | None = None
+    alias: str | None = None
     department: str | None = None
     is_active: bool | None = None
 
@@ -21,6 +23,7 @@ class MemberOut(BaseModel):
     """查询成员时的统一输出格式。"""
     id: int
     name: str
+    alias: str
     department: str
     is_active: bool
     created_at: datetime

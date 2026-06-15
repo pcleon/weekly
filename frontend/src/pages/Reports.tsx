@@ -120,7 +120,7 @@ export default function Reports() {
             <select className={selectClass} value={searchParams.get('member_id') || ''} onChange={handleFilterMember}>
               <option value="">全部成员</option>
               {data.members && data.members.map((m: any) => (
-                <option key={m.id} value={String(m.id)}>{m.name}（{m.department}）</option>
+                <option key={m.id} value={m.id.toString()}>{m.alias || m.name}</option>
               ))}
             </select>
             <select className={selectClass} value={searchParams.get('period_id') || ''} onChange={handleFilterPeriod}>
@@ -149,7 +149,7 @@ export default function Reports() {
               <tbody>
                 {data.reports.map((r: any) => (
                   <tr key={r.id} className="transition-colors hover:bg-slate-50">
-                    <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">{r.member.name}</td>
+                    <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">{r.member.alias || r.member.name}</td>
                     <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">{r.member.department}</td>
                     <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">{r.week_period.week_start.split('T')[0]} ~ {r.week_period.week_end.split('T')[0]}</td>
                     <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">{r.submitted_at ? format(parseISO(r.submitted_at), 'MM-dd HH:mm') : ''}</td>
@@ -180,7 +180,7 @@ export default function Reports() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1000] flex justify-center items-center animate-modal-in" onClick={() => setViewReport(null)}>
           <div className="bg-white border border-slate-200 rounded-2xl p-7 w-[95%] max-w-[1400px] max-h-[90vh] flex flex-col shadow-[0_20px_60px_rgba(0,0,0,0.5)]" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-3 shrink-0">
-              <h3 className="text-lg font-bold text-slate-800">{viewReport.member?.name} 的双轨周报</h3>
+              <h3 className="text-lg font-bold text-slate-800">{viewReport.member?.alias || viewReport.member?.name} 的双轨周报</h3>
               <button className="bg-transparent border-none text-slate-500 text-xl cursor-pointer p-1 transition-colors hover:text-slate-900" onClick={() => setViewReport(null)}>✕</button>
             </div>
             <div className={viewActiveTab === 'both' ? "grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-y-auto flex-1 pr-1" : "grid grid-cols-1 gap-6 overflow-y-auto flex-1 pr-1"}>
