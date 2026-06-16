@@ -18,6 +18,7 @@ class Member(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     alias: Mapped[str] = mapped_column(String(100), nullable=False, default="")
     department: Mapped[str] = mapped_column(String(100), nullable=False, default="")
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
@@ -38,6 +39,7 @@ class ReportTemplate(Base):
     file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
     system_prompt: Mapped[str | None] = mapped_column(Text, nullable=True, comment="AI汇总系统设定提示词")
+    member_id: Mapped[int | None] = mapped_column(ForeignKey("members.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
@@ -45,6 +47,7 @@ class ReportTemplate(Base):
 
     # 关联关系
     reports: Mapped[list["WeeklyReport"]] = relationship(back_populates="template")
+    member: Mapped["Member | None"] = relationship()
 
 
 class WeekPeriod(Base):

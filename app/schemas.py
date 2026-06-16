@@ -58,6 +58,8 @@ class TemplateOut(BaseModel):
     has_file: bool = False
     is_default: bool
     system_prompt: str | None = None
+    member_id: int | None = None
+    member: MemberOut | None = None
     created_at: datetime
     updated_at: datetime
 

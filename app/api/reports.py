@@ -6,8 +6,11 @@ from app.database import get_db
 from app.models import WeeklyReport, WeekPeriod, Member
 from app.schemas import ReportCreate, ReportUpdate, ReportOut, SubmissionStatus
 from app.services.report_service import get_or_create_current_period, get_submission_status
+from app.config import get_settings
 
 from app.api.deps import get_current_user
+
+settings = get_settings()
 
 router = APIRouter(prefix="/api/reports", tags=["周报管理"], dependencies=[Depends(get_current_user)])
 
@@ -111,7 +114,7 @@ def create_report(data: ReportCreate, background_tasks: BackgroundTasks, db: Ses
 
 
 @router.put("/{report_id}", response_model=ReportOut)
-def update_report(report_id: int, data: ReportUpdate, db: Session = Depends(get_db)):
+def update_report(report_id: int, data: ReportUpdate, db: Session = Depends(get_db), current_user: Member = Depends(get_current_user)):
     """更新已提交的个人周报内容。
 
     允许且仅允许更新当前进行中周期的周报，历史周期的周报不允许被修改。
@@ -133,6 +136,10 @@ def update_report(report_id: int, data: ReportUpdate, db: Session = Depends(get_
     current_period = get_or_create_current_period(db)
     if report.week_period_id != current_period.id:
         raise HTTPException(403, "历史周期的周报不允许修改")
+        
+    if settings.enable_sso and not current_user.is_admin:
+        if report.member_id != current_user.id:
+            raise HTTPException(403, "仅允许修改自己提交的周报")
     
     from app.models import WeeklyPersonalReport
     try:

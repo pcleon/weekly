@@ -15,6 +15,7 @@ export default function Templates() {
   const [submitting, setSubmitting] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<any>(null);
   const [editFormData, setEditFormData] = useState({ name: '', content: '', is_default: false, system_prompt: '' });
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
     fetchData();
@@ -23,12 +24,22 @@ export default function Templates() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const res: any = await api.get('/templates');
-      setTemplates(res);
+      const [tplRes, meRes]: any = await Promise.all([
+        api.get('/templates'),
+        api.get('/auth/me').catch(() => null)
+      ]);
+      setTemplates(tplRes);
+      if (meRes) setCurrentUser(meRes);
     } catch (e) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const canModify = (tpl: any) => {
+    if (!currentUser || !currentUser.sso_enabled) return true;
+    if (currentUser.is_admin) return true;
+    return tpl.member_id === currentUser.id;
   };
 
   const setDefaultTemplate = async (id: number) => {
@@ -178,6 +189,7 @@ export default function Templates() {
                 <tr>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200">名称</th>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200">类型</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200">创建人</th>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200">默认</th>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200">更新时间</th>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200">操作</th>
@@ -195,6 +207,9 @@ export default function Templates() {
                       )}
                     </td>
                     <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">
+                      {t.member ? (t.member.alias || t.member.name) : '系统'}
+                    </td>
+                    <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">
                       {t.is_default ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-500"><Star size={12} fill="currentColor" /> 默认</span>
                       ) : (
@@ -204,14 +219,18 @@ export default function Templates() {
                     <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle text-slate-400">{t.updated_at ? format(parseISO(t.updated_at), 'yyyy-MM-dd HH:mm') : ''}</td>
                     <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle flex items-center gap-1.5">
                       <button className={btnSmSecondary} onClick={() => openView(t.id)}>查看</button>
-                      <button className={btnSmSecondary} onClick={() => openEdit(t.id)}>编辑</button>
                       {t.file_path && (
                         <a className={`${btnSmSecondary} text-decoration-none`} href={`/api/templates/${t.id}/download`}>下载</a>
                       )}
-                      {!t.is_default && (
-                        <button className={btnSmSecondary} onClick={() => setDefaultTemplate(t.id)}>设为默认</button>
+                      {canModify(t) && (
+                        <>
+                          <button className={btnSmSecondary} onClick={() => openEdit(t.id)}>编辑</button>
+                          {!t.is_default && (
+                            <button className={btnSmSecondary} onClick={() => setDefaultTemplate(t.id)}>设为默认</button>
+                          )}
+                          <button className={btnSmDanger} onClick={() => deleteTemplate(t.id)}>删除</button>
+                        </>
                       )}
-                      <button className={btnSmDanger} onClick={() => deleteTemplate(t.id)}>删除</button>
                     </td>
                   </tr>
                 ))}

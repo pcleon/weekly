@@ -162,8 +162,14 @@ async def get_me(request: Request, db: Session = Depends(get_db)):
     Raises:
         HTTPException: 当未登录、签名校验失效或用户被禁用时抛出 401。
     """
-    if not settings.enable_sso:
-        return {"id": 0, "name": "开发模式免登录", "department": "Dev"}
+    if not settings.enable_sso and not request.cookies.get("sso_token"):
+        return {
+            "id": 0, 
+            "name": "开发模式免登录", 
+            "department": "Dev",
+            "is_admin": True,
+            "sso_enabled": False
+        }
         
     token = request.cookies.get("sso_token")
     if not token:
@@ -179,4 +185,10 @@ async def get_me(request: Request, db: Session = Depends(get_db)):
     if not member or not member.is_active:
         raise HTTPException(status_code=401, detail="账号不存在或已被禁用")
         
-    return {"id": member.id, "name": member.name, "department": member.department}
+    return {
+        "id": member.id, 
+        "name": member.name, 
+        "department": member.department,
+        "is_admin": member.is_admin,
+        "sso_enabled": settings.enable_sso
+    }

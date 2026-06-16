@@ -30,6 +30,9 @@ export default function ReportForm() {
         setTemplateId(String(res.default_template.id));
         setContent(res.default_template.content);
       }
+      if (res.sso_enabled && res.current_user_id) {
+        setMemberId(String(res.current_user_id));
+      }
     } catch (e) {
     } finally {
       setLoading(false);
@@ -108,7 +111,13 @@ export default function ReportForm() {
         <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-6">
           <div>
             <label className="block text-[13px] font-semibold text-slate-500 mb-1.5">选择成员 *</label>
-            <select className={selectClass} required value={memberId} onChange={e => setMemberId(e.target.value)}>
+            <select 
+              className={selectClass} 
+              required 
+              value={memberId} 
+              onChange={e => setMemberId(e.target.value)}
+              disabled={data.sso_enabled}
+            >
               <option value="">-- 请选择 --</option>
               {data.members.map((m: any) => (
                 <option key={m.id} value={m.id.toString()}>{m.alias || m.name}（{m.department}）</option>

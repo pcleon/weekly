@@ -3,7 +3,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models import ReportTemplate
@@ -11,7 +11,11 @@ from app.schemas import TemplateUpdate, TemplateOut
 
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads", "templates")
 
+from app.config import get_settings
 from app.api.deps import get_current_user
+from app.models import Member
+
+settings = get_settings()
 
 router = APIRouter(prefix="/api/templates", tags=["模板管理"], dependencies=[Depends(get_current_user)])
 
@@ -47,7 +51,7 @@ def list_templates(db: Session = Depends(get_db)):
     Returns:
         TemplateOut 模式对应的模板列表。
     """
-    templates = db.query(ReportTemplate).order_by(ReportTemplate.id).all()
+    templates = db.query(ReportTemplate).options(joinedload(ReportTemplate.member)).order_by(ReportTemplate.id).all()
     return [TemplateOut.from_orm_with_file(t) for t in templates]
 
 
@@ -79,6 +83,7 @@ async def create_template(
     system_prompt: str | None = Form(None),
     file: UploadFile | None = File(None),
     db: Session = Depends(get_db),
+    current_user: Member = Depends(get_current_user),
 ):
     """新建一个工作周报模板。
 
@@ -135,10 +140,12 @@ async def create_template(
             ReportTemplate.is_default == True
         ).update({"is_default": False})
 
+    member_id = current_user.id if settings.enable_sso else None
+
     tpl = ReportTemplate(
         name=name, content=content,
         file_path=file_path, is_default=is_default,
-        system_prompt=system_prompt,
+        system_prompt=system_prompt, member_id=member_id
     )
     db.add(tpl)
     db.commit()
@@ -147,7 +154,7 @@ async def create_template(
 
 
 @router.put("/{template_id}", response_model=TemplateOut)
-def update_template(template_id: int, data: TemplateUpdate, db: Session = Depends(get_db)):
+def update_template(template_id: int, data: TemplateUpdate, db: Session = Depends(get_db), current_user: Member = Depends(get_current_user)):
     """修改更新指定 ID 的周报模板信息。
 
     Args:
@@ -164,6 +171,11 @@ def update_template(template_id: int, data: TemplateUpdate, db: Session = Depend
     tpl = db.get(ReportTemplate, template_id)
     if not tpl:
         raise HTTPException(404, "模板不存在")
+        
+    if settings.enable_sso and not current_user.is_admin:
+        if tpl.member_id != current_user.id:
+            raise HTTPException(403, "仅允许修改自己提交的模板或联系管理员修改")
+            
     updates = data.model_dump(exclude_unset=True)
     if updates.get("is_default"):
         db.query(ReportTemplate).filter(
@@ -177,7 +189,7 @@ def update_template(template_id: int, data: TemplateUpdate, db: Session = Depend
 
 
 @router.delete("/{template_id}")
-def delete_template(template_id: int, db: Session = Depends(get_db)):
+def delete_template(template_id: int, db: Session = Depends(get_db), current_user: Member = Depends(get_current_user)):
     """删除指定的周报模板。
 
     物理删除模板记录，并会自动清理删除存储在本地磁盘上的关联 docx 文件。
@@ -195,6 +207,11 @@ def delete_template(template_id: int, db: Session = Depends(get_db)):
     tpl = db.get(ReportTemplate, template_id)
     if not tpl:
         raise HTTPException(404, "模板不存在")
+        
+    if settings.enable_sso and not current_user.is_admin:
+        if tpl.member_id != current_user.id:
+            raise HTTPException(403, "仅允许删除自己提交的模板或联系管理员")
+
     # 删除关联文件
     if tpl.file_path and os.path.exists(tpl.file_path):
         os.remove(tpl.file_path)
@@ -204,7 +221,7 @@ def delete_template(template_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{template_id}/default", response_model=TemplateOut)
-def set_default(template_id: int, db: Session = Depends(get_db)):
+def set_default(template_id: int, db: Session = Depends(get_db), current_user: Member = Depends(get_current_user)):
     """将指定 ID 的周报模板设为系统默认模板。
 
     被设为默认后，系统会自动把之前的默认模板重置。
@@ -222,6 +239,11 @@ def set_default(template_id: int, db: Session = Depends(get_db)):
     tpl = db.get(ReportTemplate, template_id)
     if not tpl:
         raise HTTPException(404, "模板不存在")
+        
+    if settings.enable_sso and not current_user.is_admin:
+        if tpl.member_id != current_user.id:
+            raise HTTPException(403, "仅允许对自己提交的模板进行操作或联系管理员")
+            
     db.query(ReportTemplate).filter(
         ReportTemplate.is_default == True
     ).update({"is_default": False})

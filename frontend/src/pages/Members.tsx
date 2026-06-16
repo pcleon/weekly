@@ -10,6 +10,7 @@ export default function Members() {
   const [showEdit, setShowEdit] = useState(false);
   const [newMember, setNewMember] = useState({ name: '', alias: '', department: '' });
   const [editMember, setEditMember] = useState({ id: 0, alias: '', department: '' });
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
     fetchMembers();
@@ -18,13 +19,19 @@ export default function Members() {
   const fetchMembers = async () => {
     try {
       setLoading(true);
-      const res: any = await api.get('/members');
-      setMembers(res);
+      const [membersRes, meRes]: any = await Promise.all([
+        api.get('/members'),
+        api.get('/auth/me').catch(() => null)
+      ]);
+      setMembers(membersRes);
+      if (meRes) setCurrentUser(meRes);
     } catch (e) {
     } finally {
       setLoading(false);
     }
   };
+
+  const canEdit = currentUser ? (!currentUser.sso_enabled || currentUser.is_admin) : true;
 
   const addMember = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,7 +85,7 @@ export default function Members() {
       <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-5 transition-colors hover:border-indigo-500/30">
         <div className="flex justify-between items-center mb-5">
           <h3 className="text-base font-semibold">成员列表</h3>
-          <button className={btnPrimary} onClick={() => setShowAdd(true)}><UserPlus size={14} /> 添加成员</button>
+          {canEdit && <button className={btnPrimary} onClick={() => setShowAdd(true)}><UserPlus size={14} /> 添加成员</button>}
         </div>
 
         {members.length > 0 ? (
@@ -92,7 +99,7 @@ export default function Members() {
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200">团队</th>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200">状态</th>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200">添加时间</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200">操作</th>
+                  {canEdit && <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200">操作</th>}
                 </tr>
               </thead>
               <tbody>
@@ -110,25 +117,31 @@ export default function Members() {
                       )}
                     </td>
                     <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle text-slate-400">{m.created_at ? format(parseISO(m.created_at), 'yyyy-MM-dd') : ''}</td>
-                    <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">
-                      <button className={`${btnSecondary} mr-2`} onClick={() => { setEditMember({ id: m.id, alias: m.alias || '', department: m.department || '' }); setShowEdit(true); }}>
-                        编辑
-                      </button>
-                      <button className={btnSecondary} onClick={() => toggleMember(m.id, m.is_active)}>
-                        {m.is_active ? '禁用' : '启用'}
-                      </button>
-                    </td>
+                    {canEdit && (
+                      <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle">
+                        <button className={`${btnSecondary} mr-2`} onClick={() => { setEditMember({ id: m.id, alias: m.alias || '', department: m.department || '' }); setShowEdit(true); }}>
+                          编辑
+                        </button>
+                        <button className={btnSecondary} onClick={() => toggleMember(m.id, m.is_active)}>
+                          {m.is_active ? '禁用' : '启用'}
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        ) : (
+        ) : canEdit ? (
           <div className="text-center py-16 px-5 text-slate-500">
             <div className="flex justify-center mb-4 text-slate-400">
               <User size={48} strokeWidth={1.5} />
             </div>
             <p className="text-[15px]">暂无成员，点击上方按钮添加</p>
+          </div>
+        ) : (
+          <div className="text-center py-16 px-5 text-slate-500">
+            <p className="text-[15px]">暂无成员</p>
           </div>
         )}
       </div>

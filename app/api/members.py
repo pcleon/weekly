@@ -6,6 +6,9 @@ from app.models import Member
 from app.schemas import MemberCreate, MemberUpdate, MemberOut
 
 from app.api.deps import get_current_user
+from app.config import get_settings
+
+settings = get_settings()
 
 router = APIRouter(prefix="/api/members", tags=["人员管理"], dependencies=[Depends(get_current_user)])
 
@@ -30,7 +33,7 @@ def list_members(active_only: bool = False, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=MemberOut, status_code=201)
-def create_member(data: MemberCreate, db: Session = Depends(get_db)):
+def create_member(data: MemberCreate, db: Session = Depends(get_db), current_user: Member = Depends(get_current_user)):
     """创建新的团队成员。
 
     根据成员姓名和部门创建新实体。
@@ -42,6 +45,9 @@ def create_member(data: MemberCreate, db: Session = Depends(get_db)):
     Returns:
         新创建并保存的 Member 成员对象。
     """
+    if settings.enable_sso and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="仅管理员可添加成员")
+        
     member = Member(name=data.name, alias=data.alias, department=data.department)
     db.add(member)
     db.commit()
@@ -50,7 +56,7 @@ def create_member(data: MemberCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{member_id}", response_model=MemberOut)
-def update_member(member_id: int, data: MemberUpdate, db: Session = Depends(get_db)):
+def update_member(member_id: int, data: MemberUpdate, db: Session = Depends(get_db), current_user: Member = Depends(get_current_user)):
     """更新指定团队成员的信息。
 
     根据给定的成员 ID 寻得实体，并更新数据对象中不为空的属性。
@@ -67,6 +73,8 @@ def update_member(member_id: int, data: MemberUpdate, db: Session = Depends(get_
         HTTPException: 当寻找的成员不存在时抛出 404。
     """
     member = db.get(Member, member_id)
+    if settings.enable_sso and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="仅管理员可修改成员")
     if not member:
         raise HTTPException(404, "成员不存在")
     for field, value in data.model_dump(exclude_unset=True).items():
@@ -77,7 +85,7 @@ def update_member(member_id: int, data: MemberUpdate, db: Session = Depends(get_
 
 
 @router.delete("/{member_id}")
-def delete_member(member_id: int, db: Session = Depends(get_db)):
+def delete_member(member_id: int, db: Session = Depends(get_db), current_user: Member = Depends(get_current_user)):
     """禁用（逻辑删除）指定的团队成员。
 
     并非物理删除，而是将其激活标志 `is_active` 置为 False。
@@ -93,6 +101,8 @@ def delete_member(member_id: int, db: Session = Depends(get_db)):
         HTTPException: 当寻找的成员不存在时抛出 404。
     """
     member = db.get(Member, member_id)
+    if settings.enable_sso and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="仅管理员可禁用成员")
     if not member:
         raise HTTPException(404, "成员不存在")
     member.is_active = False

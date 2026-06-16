@@ -7,6 +7,9 @@ from app.services.report_service import get_or_create_current_period, get_submis
 from app.schemas import WeekPeriodOut, ReportOut, SummaryOut, TemplateOut, MemberOut
 
 from app.api.deps import get_current_user
+from app.config import get_settings
+
+settings = get_settings()
 
 router = APIRouter(prefix="/api/pages", tags=["页面聚合数据"], dependencies=[Depends(get_current_user)])
 
@@ -33,7 +36,7 @@ def get_dashboard_data(db: Session = Depends(get_db)):
     }
 
 @router.get("/report-form")
-def get_report_form_data(db: Session = Depends(get_db)):
+def get_report_form_data(db: Session = Depends(get_db), current_user: Member = Depends(get_current_user)):
     """获取填写周报（Report Form）页面所需的初始化数据。
 
     包括当前的周期对象、系统活跃成员列表、系统预设模板列表以及设定的默认模板对象。
@@ -53,6 +56,8 @@ def get_report_form_data(db: Session = Depends(get_db)):
         "members": [MemberOut.model_validate(m) for m in active_members],
         "templates": [TemplateOut.from_orm_with_file(t) for t in all_templates],
         "default_template": TemplateOut.from_orm_with_file(default_tpl) if default_tpl else None,
+        "sso_enabled": settings.enable_sso,
+        "current_user_id": current_user.id if settings.enable_sso else None,
     }
 
 @router.get("/reports")
