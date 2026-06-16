@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel
 
 from app.database import get_db
-from app.models import WeeklySummary
+from app.models import WeeklySummary, WeekPeriod
 from app.schemas import SummaryOut, SummaryUpdate
 from app.services.report_service import get_or_create_current_period
 from app.services.summary_service import generate_summary, get_summary_prompt, save_summary_prompt, get_system_prompt, save_system_prompt

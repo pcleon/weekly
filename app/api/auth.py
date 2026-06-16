@@ -21,7 +21,7 @@ if settings.enable_sso:
         "name": "sso",
         "client_id": settings.sso_client_id,
         "client_secret": settings.sso_client_secret,
-        "client_kwargs": {"scope": "openid profile email custom_data"},
+        "client_kwargs": {"scope": "openid profile email"},
     }
     if settings.sso_server_metadata_url:
         sso_config["server_metadata_url"] = settings.sso_server_metadata_url
@@ -96,7 +96,7 @@ async def auth_callback(request: Request, db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"SSO Auth Failed: {str(e)}")
 
-    name = userinfo.get("name") or userinfo.get("preferred_username") or userinfo.get("email", "").split("@")[0]
+    name = userinfo.get("name") or userinfo.get("sub") or userinfo.get("preferred_username") or userinfo.get("email", "").split("@")[0]
     email = userinfo.get("email", "")
 
     if not name:
@@ -133,8 +133,7 @@ async def auth_callback(request: Request, db: Session = Depends(get_db)):
 async def logout(request: Request):
     """退出登录接口。
 
-    清除本地的 sso_token Cookie。如果开启了 SSO 且支持 OIDC 登出端点，
-    则重定向到 SSO 提供商的登出页面以清除 SSO 会话；否则直接重定向到本地登录页面。
+    只使用本地的登出逻辑，清除本地的 sso_token Cookie，直接重定向到本地登录页面，不再请求 SSO 提供商的登出页面。
 
     Args:
         request: FastAPI 请求对象。
@@ -144,24 +143,6 @@ async def logout(request: Request):
     """
     res = RedirectResponse(url="/login", status_code=303)
     res.delete_cookie("sso_token")
-
-    if settings.enable_sso:
-        try:
-            metadata = await oauth.sso.load_server_metadata()
-            end_session_endpoint = metadata.get("end_session_endpoint")
-            if end_session_endpoint:
-                from urllib.parse import quote
-                post_logout_redirect_uri = f"{request.base_url}login"
-                logout_url = (
-                    f"{end_session_endpoint}"
-                    f"?post_logout_redirect_uri={quote(post_logout_redirect_uri)}"
-                    f"&client_id={settings.sso_client_id}"
-                )
-                res = RedirectResponse(url=logout_url, status_code=303)
-                res.delete_cookie("sso_token")
-        except Exception:
-            pass
-
     return res
 
 @router.get("/me")
