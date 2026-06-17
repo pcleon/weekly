@@ -79,6 +79,32 @@ def api_extend_period(params: PeriodExtendParams, db: Session = Depends(get_db))
     }
 
 
+@app.post("/api/settings/period/reset")
+def api_reset_period(db: Session = Depends(get_db)):
+    """将当前的周报收集周期和截止时间重置为系统默认配置的值。
+
+    通过获取当前周期起始日并根据默认截止时间配置计算出默认周期结束日与截止时间，然后写入数据库。
+
+    Args:
+        db: 数据库 Session (会话) 对象。
+
+    Returns:
+        包含成功提示消息、重置后的周期结束日以及截止时间的字典。
+    """
+    current_period = get_or_create_current_period(db)
+    info = WeekPeriod.calc_for_date(current_period.week_start)
+    current_period.week_end = info["week_end"]
+    current_period.deadline = info["deadline"]
+    db.commit()
+    db.refresh(current_period)
+    return {
+        "message": "已恢复当前周期为默认设置",
+        "week_end": current_period.week_end.isoformat(),
+        "deadline": current_period.deadline.isoformat()
+    }
+
+
+
 @app.post("/api/mock-mail")
 async def mock_mail(request: Request):
     """模拟邮件发送服务的 HTTP 接口。
