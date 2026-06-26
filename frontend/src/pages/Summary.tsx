@@ -1,9 +1,9 @@
-import { useEffect, useState, useMemo, Fragment } from 'react';
+import { useEffect, useState, useMemo, Fragment, useRef } from 'react';
 import api, { showToast } from '../api';
 import { format, parseISO } from 'date-fns';
 import { MdPreview } from 'md-editor-rt';
 import 'md-editor-rt/lib/preview.css';
-import { Settings, Bot, Download, FileText, Maximize2, Minimize2, Send } from 'lucide-react';
+import { Settings, Bot, Download, FileText, Maximize2, Minimize2, Send, XCircle } from 'lucide-react';
 
 export default function Summary() {
   const [data, setData] = useState<any>(null);
@@ -41,8 +41,27 @@ export default function Summary() {
     return Object.values(groups).sort((a, b) => b.period.week_start.localeCompare(a.period.week_start));
   }, [data?.summaries]);
 
+  const generatingRef = useRef(generating);
+  useEffect(() => {
+    generatingRef.current = generating;
+  }, [generating]);
+
   useEffect(() => {
     fetchData();
+
+    const checkStatus = async () => {
+      try {
+        const res: any = await api.get('/summaries/status');
+        if (generatingRef.current && !res.is_generating) {
+          fetchData(); // 刚刚生成结束，刷新数据
+        }
+        setGenerating(res.is_generating);
+      } catch (e) {}
+    };
+
+    checkStatus();
+    const interval = setInterval(checkStatus, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchData = async () => {
@@ -104,6 +123,13 @@ export default function Summary() {
     } finally {
       setGenerating(false);
     }
+  };
+
+  const interruptSummary = async () => {
+    try {
+      await api.post('/summaries/interrupt');
+      showToast('已发送中断指令');
+    } catch (e) {}
   };
 
   const deleteSummary = async (id: number) => {
@@ -185,6 +211,11 @@ export default function Summary() {
             <button className={btnPrimary} onClick={generateSummary} disabled={generating}>
               {generating ? '正在生成...' : <><Bot size={16} /> 生成汇总</>}
             </button>
+            {generating && (
+              <button className={`${btnSecondary} text-red-500 hover:text-red-600 hover:border-red-200`} onClick={interruptSummary}>
+                <XCircle size={16} /> 中断生成
+              </button>
+            )}
             {data.current_summary && (
               <button className={btnSecondary} onClick={() => openSendModal(data.current_summary)}>
                 <Send size={16} /> 发送周报

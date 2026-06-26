@@ -119,8 +119,8 @@ def build_reports_text(reports: list[WeeklyReport]) -> str:
     return "\n---\n".join(parts)
 
 
-def generate_summary(db: Session, period: WeekPeriod) -> WeeklySummary:
-    """使用 LangChain 汇总指定周期的所有周报。
+async def generate_summary(db: Session, period: WeekPeriod) -> WeeklySummary:
+    """使用 LangChain 异步汇总指定周期的所有周报。
 
     Args:
         db: 数据库会话对象。
@@ -178,7 +178,7 @@ def generate_summary(db: Session, period: WeekPeriod) -> WeeklySummary:
             SystemMessage(content=system_prompt),
             HumanMessage(content=human_content)
         ]
-        response = llm.invoke(messages)
+        response = await llm.ainvoke(messages)
         summary_content = response.content
         
         # 清洗大模型可能多带的 markdown 代码块包裹标记
@@ -221,13 +221,14 @@ def generate_summary_task(period_id: int):
     Args:
         period_id: 目标周期的 ID 值。
     """
+    import asyncio
     from app.database import SessionLocal
     from loguru import logger
     db = SessionLocal()
     try:
         period = db.get(WeekPeriod, period_id)
         if period:
-            generate_summary(db, period)
+            asyncio.run(generate_summary(db, period))
     except Exception as e:
         logger.error(f"后台自动生成汇总失败: {e}", exc_info=True)
     finally:

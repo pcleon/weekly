@@ -1,5 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
+
+import asyncio
+
+_generate_lock = None
+_generate_task: asyncio.Task | None = None
+
+def get_lock():
+    global _generate_lock
+    if _generate_lock is None:
+        _generate_lock = asyncio.Lock()
+    return _generate_lock
 from pydantic import BaseModel
 
 from app.database import get_db
@@ -332,10 +343,11 @@ async def auto_send_summary_loop():
 
 
 @router.post("/generate", response_model=SummaryOut)
-def trigger_summary(db: Session = Depends(get_db)):
+async def trigger_summary(db: Session = Depends(get_db)):
     """手动触发生成当前周期的 AI 工作周报汇总。
 
     若当前周期没有任何成员提交周报，则拒绝生成。
+    使用排它锁防止并发生成，设置10分钟硬超时，并支持手动中断。
 
     Args:
         db: 数据库 Session 对象。
@@ -344,14 +356,45 @@ def trigger_summary(db: Session = Depends(get_db)):
         新生成的 WeeklySummary 汇总实体。
 
     Raises:
-        HTTPException: 当无周报可汇总导致生成失败时抛出 400。
+        HTTPException: 当无周报可汇总导致生成失败时抛出 400，当有其他生成任务在进行时抛出 409。
     """
-    period = get_or_create_current_period(db)
-    try:
-        summary = generate_summary(db, period)
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-    return summary
+    global _generate_task
+    lock = get_lock()
+    if lock.locked():
+        raise HTTPException(409, "正在生成汇总中，请稍后再试")
+        
+    async with lock:
+        try:
+            period = get_or_create_current_period(db)
+            _generate_task = asyncio.create_task(generate_summary(db, period))
+            summary = await asyncio.wait_for(_generate_task, timeout=600.0)
+            return summary
+        except asyncio.TimeoutError:
+            raise HTTPException(504, "生成报告超时（超过10分钟），已自动停止")
+        except asyncio.CancelledError:
+            raise HTTPException(499, "生成已手动中断")
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        finally:
+            _generate_task = None
+
+
+@router.post("/interrupt")
+def interrupt_summary():
+    """手动中断正在生成的 AI 汇总任务。"""
+    global _generate_task
+    if _generate_task and not _generate_task.done():
+        _generate_task.cancel()
+        return {"message": "已成功发送中断指令"}
+    return {"message": "当前没有正在生成的任务"}
+
+
+@router.get("/status")
+def get_summary_status():
+    """获取当前 AI 汇总任务的生成状态。"""
+    global _generate_task
+    is_generating = _generate_task is not None and not _generate_task.done()
+    return {"is_generating": is_generating}
 
 
 @router.get("", response_model=list[SummaryOut])
@@ -549,37 +592,31 @@ def send_summary_mail(
 
     start_str = summary.week_period.week_start.strftime('%Y%m%d')
     end_str = summary.week_period.week_end.strftime('%Y%m%d')
-
-    # 生成临时 Word 文件
-    doc = build_docx_document(summary)
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
-        doc.save(tmp.name)
-        temp_path = tmp.name
+    filename = f"工作周报-数据库团队_{start_str}-{end_str}.docx"
 
     subject = req.subject or f"工作周报 ({start_str} - {end_str})"
     body = req.body or f"附件为 {start_str}-{end_str} 的工作周报汇总，请查收。"
 
-    # 调用邮件推送工具
-    try:
-        res = send_mail(
-            subject=subject,
-            body=body,
-            to=req.to,
-            attach=[temp_path]
-        )
-        return {
-            "message": "邮件发送成功",
-            "status_code": res.status_code,
-            "detail": res.text
-        }
-    except Exception as e:
-        from loguru import logger
-        logger.error(f"邮件发送服务异常: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"邮件发送服务异常: {e}")
-    finally:
-        # 清理临时文件
-        if os.path.exists(temp_path):
-            try:
-                os.remove(temp_path)
-            except Exception:
-                pass
+    # 生成临时 Word 文件并放入临时目录以保留其正确的文件名
+    doc = build_docx_document(summary)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        temp_path = os.path.join(tmpdir, filename)
+        doc.save(temp_path)
+
+        # 调用邮件推送工具
+        try:
+            res = send_mail(
+                subject=subject,
+                body=body,
+                to=req.to,
+                attach=[temp_path]
+            )
+            return {
+                "message": "邮件发送成功",
+                "status_code": res.status_code,
+                "detail": res.text
+            }
+        except Exception as e:
+            from loguru import logger
+            logger.error(f"邮件发送服务异常: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail=f"邮件发送服务异常: {e}")
