@@ -8,13 +8,13 @@ import { Settings, Bot, Download, FileText, Maximize2, Minimize2, Send, XCircle 
 export default function Summary() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  
+
   const [showConfig, setShowConfig] = useState(false);
   const [promptConfig, setPromptConfig] = useState({ system_prompt: '', user_template: '' });
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [configActiveTab, setConfigActiveTab] = useState<'both' | 'system' | 'user'>('both');
-  
+
   const [viewSummary, setViewSummary] = useState<any>(null);
   const [generating, setGenerating] = useState(false);
   const [expandedPeriods, setExpandedPeriods] = useState<Record<number, boolean>>({});
@@ -56,7 +56,7 @@ export default function Summary() {
           fetchData(); // 刚刚生成结束，刷新数据
         }
         setGenerating(res.is_generating);
-      } catch (e) {}
+      } catch (e) { }
     };
 
     checkStatus();
@@ -84,12 +84,12 @@ export default function Summary() {
       });
       setSelectedTemplateId('');
       setConfigActiveTab('both');
-      
+
       const tpls: any = await api.get('/templates');
       setTemplates(tpls);
-      
+
       setShowConfig(true);
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const handleSelectTemplate = (idStr: string) => {
@@ -110,7 +110,7 @@ export default function Summary() {
       await api.put('/summaries/prompt', promptConfig);
       showToast('配置已保存');
       setShowConfig(false);
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const generateSummary = async () => {
@@ -129,7 +129,7 @@ export default function Summary() {
     try {
       await api.post('/summaries/interrupt');
       showToast('已发送中断指令');
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const deleteSummary = async (id: number) => {
@@ -138,14 +138,14 @@ export default function Summary() {
       await api.delete(`/summaries/${id}`);
       showToast('已删除');
       fetchData();
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const openSendModal = (summary: any) => {
     const start_str = format(parseISO(summary.week_period.week_start), 'yyyyMMdd');
     const end_str = format(parseISO(summary.week_period.week_end), 'yyyyMMdd');
     const defaultSubject = `工作周报-数据库团队_${start_str}-${end_str}`;
-    const defaultBody = "大家请查看附件中的数据库团队工作周报，谢谢。";
+    const defaultBody = "附件为本周数据库团队工作周报，谢谢。";
     const savedRecipients = localStorage.getItem('last_mail_recipients') || '';
 
     setMailForm({
@@ -189,7 +189,7 @@ export default function Summary() {
 
   const btnPrimary = "inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500 text-white border-none rounded-lg text-sm font-semibold cursor-pointer transition-all hover:bg-indigo-600 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)] disabled:opacity-70 disabled:cursor-not-allowed";
   const btnSecondary = "inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-slate-900 border border-slate-200 rounded-lg text-sm font-semibold cursor-pointer transition-all hover:bg-slate-50 hover:border-indigo-500";
-  
+
   const btnSmPrimary = "inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-indigo-500 text-white border-none rounded-lg text-xs font-semibold cursor-pointer transition-all hover:bg-indigo-600 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)] disabled:opacity-50 disabled:cursor-not-allowed";
   const btnSmSecondary = "inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white text-slate-900 border border-slate-200 rounded-lg text-xs font-semibold cursor-pointer transition-all hover:bg-slate-50 hover:border-indigo-500";
   const btnSmDanger = "inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-red-500/10 text-red-500 border-none rounded-lg text-xs font-semibold cursor-pointer transition-all hover:bg-red-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed";
@@ -226,17 +226,17 @@ export default function Summary() {
         <p className="text-slate-500 text-sm leading-relaxed">
           点击按钮将对本周所有已提交的周报进行 AI 智能汇总。
           {data.current_summary && (
-            <><br/><span className="text-indigo-500 font-semibold">
+            <><br /><span className="text-indigo-500 font-semibold">
               (本周期最近一次生成时间：{format(parseISO(data.current_summary.generated_at), 'yyyy-MM-dd HH:mm')})
             </span></>
           )}
           {data.current_period && data.current_period.auto_sent_at && (
-            <><br/><span className="text-emerald-500 font-semibold">
+            <><br /><span className="text-emerald-500 font-semibold">
               (自动发送时间：{format(parseISO(data.current_period.auto_sent_at), 'yyyy-MM-dd HH:mm')})
             </span></>
           )}
           {data.last_report && (
-            <><br/><span className="text-indigo-500 font-semibold">
+            <><br /><span className="text-indigo-500 font-semibold">
               (最后更新人员：{data.last_report.member.alias || data.last_report.member.name} - {format(parseISO(data.last_report.submitted_at), 'yyyy-MM-dd HH:mm')})
             </span></>
           )}
@@ -283,11 +283,11 @@ export default function Summary() {
                           )}
                         </td>
                         <td className="px-4 py-3.5 text-sm border-b border-slate-200 align-middle flex items-center gap-1.5">
-                           <button className={btnSmSecondary} onClick={(e) => { e.stopPropagation(); setViewSummary(latest); }}><FileText size={14} /> 查看最新</button>
-                           {items.length === 1 && (
-                             <a href={`/api/summaries/${latest.id}/download`} onClick={(e) => e.stopPropagation()} className={btnSmPrimary}><Download size={14} /> 下载</a>
-                           )}
-                           <button className={btnSmSecondary} onClick={(e) => { e.stopPropagation(); openSendModal(latest); }}><Send size={14} /> 发送</button>
+                          <button className={btnSmSecondary} onClick={(e) => { e.stopPropagation(); setViewSummary(latest); }}><FileText size={14} /> 查看最新</button>
+                          {items.length === 1 && (
+                            <a href={`/api/summaries/${latest.id}/download`} onClick={(e) => e.stopPropagation()} className={btnSmPrimary}><Download size={14} /> 下载</a>
+                          )}
+                          <button className={btnSmSecondary} onClick={(e) => { e.stopPropagation(); openSendModal(latest); }}><Send size={14} /> 发送</button>
                         </td>
                       </tr>
                       {isExpanded && items.map((s: any, idx: number) => (
@@ -347,14 +347,14 @@ export default function Summary() {
               <h3 className="text-lg font-bold">配置汇总提示词</h3>
               <button className="bg-transparent border-none text-slate-500 text-xl cursor-pointer p-1 transition-colors hover:text-slate-900" onClick={() => setShowConfig(false)}>✕</button>
             </div>
-            
+
             {/* 模板选择套用区 */}
             <div className="mb-5 shrink-0 bg-slate-50 p-4 rounded-xl border border-slate-100 flex items-center gap-3">
               <div className="flex-1">
                 <label className="block text-xs font-bold text-slate-500 mb-1.5">套用周报模板快速填充 (载入后仍可编辑修改)</label>
-                <select 
-                  value={selectedTemplateId} 
-                  onChange={(e) => handleSelectTemplate(e.target.value)} 
+                <select
+                  value={selectedTemplateId}
+                  onChange={(e) => handleSelectTemplate(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                 >
                   <option value="">-- 请选择模板进行套用 --</option>
@@ -383,9 +383,9 @@ export default function Summary() {
                     </button>
                   </div>
                   <textarea className={`${inputClass} flex-1 min-h-[380px] lg:min-h-[450px] resize-none`}
-                    value={promptConfig.system_prompt} onChange={e => setPromptConfig({...promptConfig, system_prompt: e.target.value})}></textarea>
+                    value={promptConfig.system_prompt} onChange={e => setPromptConfig({ ...promptConfig, system_prompt: e.target.value })}></textarea>
                 </div>
-                
+
                 <div className={`flex flex-col mb-5 lg:mb-0 ${configActiveTab === 'system' ? 'hidden' : ''}`}>
                   <div className="flex justify-between items-center mb-2 shrink-0">
                     <div>
@@ -402,7 +402,7 @@ export default function Summary() {
                     </button>
                   </div>
                   <textarea className={`${inputClass} flex-1 min-h-[380px] lg:min-h-[450px] resize-none`}
-                    value={promptConfig.user_template} onChange={e => setPromptConfig({...promptConfig, user_template: e.target.value})}></textarea>
+                    value={promptConfig.user_template} onChange={e => setPromptConfig({ ...promptConfig, user_template: e.target.value })}></textarea>
                 </div>
               </div>
               <button type="submit" className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-500 text-white border-none rounded-lg text-[15px] font-semibold cursor-pointer transition-all hover:bg-indigo-600 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)] shrink-0">保存配置</button>
@@ -418,13 +418,13 @@ export default function Summary() {
               <h3 className="text-lg font-bold">发送周报邮件</h3>
               <button className="bg-transparent border-none text-slate-500 text-xl cursor-pointer p-1 transition-colors hover:text-slate-900" onClick={() => setShowSendModal(false)}>✕</button>
             </div>
-            
+
             <form onSubmit={handleSendMail} className="flex flex-col gap-4 flex-1 overflow-y-auto pr-1">
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5">收件人 (多个邮箱用逗号、分号或换行分隔)</label>
-                <textarea 
-                  value={mailForm.to} 
-                  onChange={(e) => setMailForm({...mailForm, to: e.target.value})} 
+                <textarea
+                  value={mailForm.to}
+                  onChange={(e) => setMailForm({ ...mailForm, to: e.target.value })}
                   placeholder="例如: leader@company.com, team@company.com"
                   className={`${inputClass} min-h-[80px] resize-y`}
                   required
@@ -433,10 +433,10 @@ export default function Summary() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5">邮件主题</label>
-                <input 
-                  type="text" 
-                  value={mailForm.subject} 
-                  onChange={(e) => setMailForm({...mailForm, subject: e.target.value})} 
+                <input
+                  type="text"
+                  value={mailForm.subject}
+                  onChange={(e) => setMailForm({ ...mailForm, subject: e.target.value })}
                   className={inputClass}
                   required
                 />
@@ -444,9 +444,9 @@ export default function Summary() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5">邮件正文 (Word格式周报将作为附件自动发送)</label>
-                <textarea 
-                  value={mailForm.body} 
-                  onChange={(e) => setMailForm({...mailForm, body: e.target.value})} 
+                <textarea
+                  value={mailForm.body}
+                  onChange={(e) => setMailForm({ ...mailForm, body: e.target.value })}
                   className={`${inputClass} min-h-[120px] resize-y`}
                   required
                 />

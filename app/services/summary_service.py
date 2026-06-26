@@ -30,7 +30,7 @@ DEFAULT_SUMMARY_PROMPT_TEMPLATE = """# 数据库团队工作周报
 ### 4. 金融科技
 
 - ；
-- **。**
+- 。
 
 ## 三、问题与风险点
 
